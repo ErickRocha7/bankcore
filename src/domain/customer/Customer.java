@@ -1,71 +1,225 @@
+// src/domain/customer/Customer.java
 package domain.customer;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+
 import domain.account.Account;
+import infrastructure.security.PinHasher;
 
 /**
  * Representa um cliente do banco.
- * Cada cliente pode ter múltiplas contas vinculadas.
- * 
+ *
+ * Cada cliente pode possuir múltiplas contas bancárias.
+ *
  * Capítulos abordados:
- * 3, 6, 8 - Classes, encapsulamento, construtores, métodos acessores, static,
- * final
- * 7, 16 - Uso de coleção ArrayList (List<Account>)
- * 14 - Validação de CPF com expressão regular (String.matches)
- * 15 - Serialização (implements Serializable)
+ * 3, 6, 8 - Classes, encapsulamento, construtores e validações
+ * 7, 16 - Coleções genéricas (List<Account>)
+ * 10 - Composição
+ * 14 - Expressões regulares e Strings
+ * 15 - Serialização
  */
 public class Customer implements Serializable {
+
     private static final long serialVersionUID = 1L;
 
-    private final String cpf; // CPF validado, imutável após criação
-    private String name;
-    private String password; // senha simples (para demonstração de autenticação)
-    private List<Account> accounts; // composição: cliente possui contas
+    /**
+     * CPF do cliente.
+     * Imutável após criação.
+     */
+    private final String cpf;
 
-    // Construtor
+    /**
+     * Nome completo do cliente.
+     */
+    private String name;
+
+    /**
+     * Senha armazenada como hash.
+     */
+    private String passwordHash;
+
+    /**
+     * Contas vinculadas ao cliente.
+     */
+    private List<Account> accounts;
+
+    /**
+     * Construtor principal.
+     *
+     * @param cpf      CPF formatado
+     * @param name     nome completo
+     * @param password senha em texto puro
+     */
     public Customer(String cpf, String name, String password) {
-        if (cpf == null || !isValidCPF(cpf)) {
-            throw new IllegalArgumentException("CPF inválido. Formato esperado: 000.000.000-00");
-        }
-        if (name == null || !name.matches("[A-Za-zÀ-Úà-ú ]+")) {
-            throw new IllegalArgumentException("Nome deve conter apenas letras e espaços.");
-        }
-        if (password == null || password.length() < 4) {
-            throw new IllegalArgumentException("Senha deve ter no mínimo 4 caracteres.");
-        }
+
+        validateCpf(cpf);
+        validateName(name);
+        validatePassword(password);
+
         this.cpf = cpf;
-        this.name = name;
-        this.password = password;
+        this.name = name.trim();
+        this.passwordHash = PinHasher.hash(password);
         this.accounts = new ArrayList<>();
     }
 
-    // Valida CPF com regex (simplificação; não valida dígitos verificadores)
-    // Capítulo 14: expressões regulares
-    public static boolean isValidCPF(String cpf) {
-        return cpf.matches("\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}");
-    }
-
-    // Adiciona uma conta ao cliente (composição)
+    /**
+     * Adiciona uma conta ao cliente.
+     *
+     * @param account conta
+     */
     public void addAccount(Account account) {
+
         if (account == null) {
             throw new IllegalArgumentException("Conta não pode ser nula.");
         }
+
+        if (accounts.contains(account)) {
+            throw new IllegalArgumentException(
+                    "Conta já vinculada ao cliente.");
+        }
+
         accounts.add(account);
     }
 
-    // Remove conta pelo número (busca linear – adequado para listas pequenas)
+    /**
+     * Remove conta pelo número.
+     *
+     * @param accountNumber número da conta
+     * @return true se removida
+     */
     public boolean removeAccount(String accountNumber) {
-        return accounts.removeIf(acc -> acc.getAccountNumber().equals(accountNumber));
+
+        if (accountNumber == null || accountNumber.isBlank()) {
+            return false;
+        }
+
+        return accounts.removeIf(
+                account -> account.getAccountNumber().equals(accountNumber));
     }
 
-    // Autenticação simples (sem hash, para fins pedagógicos)
+    /**
+     * Busca uma conta pelo número.
+     *
+     * @param accountNumber número da conta
+     * @return conta encontrada ou null
+     */
+    public Account findAccount(String accountNumber) {
+
+        if (accountNumber == null || accountNumber.isBlank()) {
+            return null;
+        }
+
+        for (Account account : accounts) {
+            if (account.getAccountNumber().equals(accountNumber)) {
+                return account;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Verifica autenticação do cliente.
+     *
+     * @param password senha em texto puro
+     * @return true se válida
+     */
     public boolean authenticate(String password) {
-        return this.password.equals(password);
+
+        if (password == null) {
+            return false;
+        }
+
+        return PinHasher.verify(password, passwordHash);
     }
 
+    /**
+     * Altera senha do cliente.
+     *
+     * @param currentPassword senha atual
+     * @param newPassword     nova senha
+     */
+    public void changePassword(
+            String currentPassword,
+            String newPassword) {
+
+        if (!authenticate(currentPassword)) {
+            throw new IllegalArgumentException("Senha atual inválida.");
+        }
+
+        validatePassword(newPassword);
+
+        this.passwordHash = PinHasher.hash(newPassword);
+    }
+
+    /**
+     * Validação simples de CPF formatado.
+     *
+     * Formato esperado:
+     * 000.000.000-00
+     *
+     * @param cpf CPF
+     * @return true se formato válido
+     */
+    public static boolean isValidCPF(String cpf) {
+
+        if (cpf == null) {
+            return false;
+        }
+
+        return cpf.matches("\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}");
+    }
+
+    /**
+     * Valida CPF.
+     */
+    private void validateCpf(String cpf) {
+
+        if (!isValidCPF(cpf)) {
+            throw new IllegalArgumentException(
+                    "CPF inválido. Formato esperado: 000.000.000-00");
+        }
+    }
+
+    /**
+     * Valida nome.
+     */
+    private void validateName(String name) {
+
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Nome não pode ser vazio.");
+        }
+
+        if (!name.matches("[A-Za-zÀ-ÿ ]+")) {
+            throw new IllegalArgumentException(
+                    "Nome deve conter apenas letras e espaços.");
+        }
+    }
+
+    /**
+     * Valida senha.
+     */
+    private void validatePassword(String password) {
+
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Senha não pode ser vazia.");
+        }
+
+        if (password.length() < 4) {
+            throw new IllegalArgumentException(
+                    "Senha deve possuir no mínimo 4 caracteres.");
+        }
+    }
+
+    // =========================
     // Getters
+    // =========================
+
     public String getCpf() {
         return cpf;
     }
@@ -74,23 +228,92 @@ public class Customer implements Serializable {
         return name;
     }
 
+    /**
+     * Retorna cópia defensiva da lista.
+     */
     public List<Account> getAccounts() {
         return new ArrayList<>(accounts);
-    } // retorna cópia defensiva
+    }
 
-    // Representação textual
+    // =========================
+    // Setters controlados
+    // =========================
+
+    public void setName(String name) {
+
+        validateName(name);
+
+        this.name = name.trim();
+    }
+
+    // =========================
+    // Métodos utilitários
+    // =========================
+
+    /**
+     * Retorna quantidade de contas.
+     */
+    public int getAccountCount() {
+        return accounts.size();
+    }
+
+    /**
+     * Verifica se o cliente possui contas.
+     */
+    public boolean hasAccounts() {
+        return !accounts.isEmpty();
+    }
+
+    // =========================
+    // Object methods
+    // =========================
+
     @Override
     public String toString() {
+
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("Cliente: %s | CPF: %s\n", name, cpf));
+
+        sb.append("Cliente: ")
+                .append(name)
+                .append(" | CPF: ")
+                .append(cpf)
+                .append(System.lineSeparator());
+
         if (accounts.isEmpty()) {
+
             sb.append("  Nenhuma conta vinculada.");
+
         } else {
-            sb.append("  Contas:\n");
-            for (Account acc : accounts) {
-                sb.append("    ").append(acc).append("\n");
+
+            sb.append("  Contas:")
+                    .append(System.lineSeparator());
+
+            for (Account account : accounts) {
+                sb.append("    ")
+                        .append(account)
+                        .append(System.lineSeparator());
             }
         }
+
         return sb.toString();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(cpf);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+
+        if (this == obj) {
+            return true;
+        }
+
+        if (!(obj instanceof Customer other)) {
+            return false;
+        }
+
+        return Objects.equals(cpf, other.cpf);
     }
 }
