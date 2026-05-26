@@ -1,102 +1,229 @@
+// src/domain/account/Account.java
 package domain.account;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Objects;
+
 import collections.GenericLinkedList;
 import exceptions.InsufficientFundsException;
 
 /**
  * Classe abstrata que representa uma conta bancária genérica.
- * Fornece a estrutura comum para contas correntes e poupanças.
- * 
+ *
+ * Fornece a estrutura base para contas do sistema bancário.
+ *
  * Cobertura dos capítulos:
- * 3, 6, 8 - Classes, objetos, encapsulamento, construtores, static, final
- * 7 - Uso de GenericLinkedList como estrutura de dados (coleção)
- * 9 - Herança (será estendida por SavingsAccount e CheckingAccount)
- * 10 - Polimorfismo (método abstrato calculateInterest)
- * 11 - Tratamento de exceções (lança InsufficientFundsException)
- * 14 - Strings (formatação, concatenação)
- * 15 - Serialização (implementa Serializable)
- * 20, 21 - Genéricos (usa GenericLinkedList<T>)
+ * 3, 6, 8 - Classes, objetos, encapsulamento, construtores, static e final
+ * 9 - Herança
+ * 10 - Polimorfismo
+ * 11 - Exceções personalizadas
+ * 14 - Strings e formatação
+ * 15 - Serialização
+ * 20, 21 - Genéricos e estruturas personalizadas
  */
 public abstract class Account implements Serializable {
+
     private static final long serialVersionUID = 1L;
 
-    // Contador estático para geração de número de conta sequencial (operador ++)
+    /**
+     * Contador sequencial simples para geração de contas.
+     */
     private static int accountCounter = 10000;
 
-    private final String accountNumber; // final para imutabilidade do número
-    private String holderName;
-    protected double balance; // protected para acesso nas subclasses
-    protected GenericLinkedList<String> transactions; // histórico simples (evoluirá para Transaction)
+    /**
+     * Formatação padrão de data/hora.
+     */
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    // Construtor
+    /**
+     * Número da conta.
+     * Imutável após criação.
+     */
+    private final String accountNumber;
+
+    /**
+     * Nome do titular.
+     */
+    private String holderName;
+
+    /**
+     * Saldo da conta.
+     * Protected para acesso controlado pelas subclasses.
+     */
+    protected double balance;
+
+    /**
+     * Histórico textual simplificado de transações.
+     */
+    protected GenericLinkedList<String> transactions;
+
+    /**
+     * Construtor principal.
+     *
+     * @param holderName     titular da conta
+     * @param initialBalance saldo inicial
+     */
     public Account(String holderName, double initialBalance) {
-        if (holderName == null || holderName.isBlank()) {
-            throw new IllegalArgumentException("Nome do titular não pode ser vazio.");
-        }
-        if (initialBalance < 0) {
-            throw new IllegalArgumentException("Saldo inicial não pode ser negativo.");
-        }
-        this.holderName = holderName;
+
+        validateHolderName(holderName);
+        validateNonNegativeValue(initialBalance, "Saldo inicial");
+
+        this.accountNumber = generateAccountNumber();
+        this.holderName = holderName.trim();
         this.balance = initialBalance;
-        this.accountNumber = String.format("%05d", ++accountCounter); // incremento e formatação (cap 4, 14)
         this.transactions = new GenericLinkedList<>();
-        // Registra a transação de abertura
+
         addTransaction("Abertura de conta", initialBalance);
     }
 
-    // Métodos públicos (operações bancárias)
-
     /**
      * Deposita um valor na conta.
-     * 
-     * @param amount valor positivo
+     *
+     * @param amount valor do depósito
      */
     public void deposit(double amount) {
-        if (amount <= 0) {
-            throw new IllegalArgumentException("Valor de depósito deve ser positivo.");
-        }
-        balance += amount; // operador de atribuição composta (cap 2)
+
+        validatePositiveValue(amount, "Depósito");
+
+        balance += amount;
+
         addTransaction("Depósito", amount);
     }
 
     /**
-     * Saca um valor da conta, se houver saldo suficiente.
-     * 
-     * @param amount valor positivo
-     * @throws InsufficientFundsException se saldo insuficiente
+     * Realiza saque da conta.
+     *
+     * @param amount valor do saque
+     * @throws InsufficientFundsException se não houver saldo suficiente
      */
     public void withdraw(double amount) throws InsufficientFundsException {
-        if (amount <= 0) {
-            throw new IllegalArgumentException("Valor de saque deve ser positivo.");
-        }
+
+        validatePositiveValue(amount, "Saque");
+
         if (amount > balance) {
-            throw new InsufficientFundsException("Saldo insuficiente. Saldo atual: R$ "
-                    + String.format("%.2f", balance) + ", solicitado: R$ " + String.format("%.2f", amount));
+            throw new InsufficientFundsException(
+                    String.format(
+                            "Saldo insuficiente. Saldo atual: R$ %.2f | Valor solicitado: R$ %.2f",
+                            balance,
+                            amount));
         }
+
         balance -= amount;
+
         addTransaction("Saque", -amount);
     }
 
     /**
-     * Método abstrato para cálculo de juros/rendimentos.
-     * Cada tipo de conta implementa sua política.
-     * 
-     * @param years número de anos para projeção
+     * Método abstrato de projeção/aplicação de juros.
+     *
+     * @param years quantidade de anos
      */
     public abstract void calculateInterest(int years);
 
     /**
-     * Registra uma transação no histórico (método público para uso externo).
-     * 
-     * @param description descrição da transação
-     * @param amount      valor (positivo para crédito, negativo para débito)
+     * Registra uma transação manualmente.
+     *
+     * @param description descrição
+     * @param amount      valor
      */
     public void recordTransaction(String description, double amount) {
+
+        if (description == null || description.isBlank()) {
+            throw new IllegalArgumentException("Descrição da transação não pode ser vazia.");
+        }
+
         addTransaction(description, amount);
     }
 
-    // Métodos acessadores
+    /**
+     * Adiciona uma entrada ao histórico.
+     *
+     * @param description descrição
+     * @param amount      valor
+     */
+    protected void addTransaction(String description, double amount) {
+
+        String timestamp = LocalDateTime.now().format(DATE_FORMATTER);
+
+        String entry = String.format(
+                "[%s] %-30s R$ %,.2f",
+                timestamp,
+                description,
+                amount);
+
+        transactions.add(entry);
+    }
+
+    /**
+     * Retorna extrato textual completo.
+     *
+     * @return extrato formatado
+     */
+    public String getStatement() {
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("=============================================\n");
+        sb.append(String.format("Conta: %s\n", accountNumber));
+        sb.append(String.format("Titular: %s\n", holderName));
+        sb.append("=============================================\n");
+
+        if (transactions.isEmpty()) {
+            sb.append("Nenhuma movimentação registrada.\n");
+        } else {
+            for (String transaction : transactions) {
+                sb.append(transaction).append("\n");
+            }
+        }
+
+        sb.append("=============================================\n");
+        sb.append(String.format("Saldo atual: R$ %,.2f\n", balance));
+
+        return sb.toString();
+    }
+
+    /**
+     * Gera número sequencial formatado.
+     */
+    private static String generateAccountNumber() {
+        return String.format("%05d", ++accountCounter);
+    }
+
+    /**
+     * Valida nome do titular.
+     */
+    private void validateHolderName(String holderName) {
+
+        if (holderName == null || holderName.isBlank()) {
+            throw new IllegalArgumentException("Nome do titular não pode ser vazio.");
+        }
+    }
+
+    /**
+     * Valida valor positivo.
+     */
+    protected void validatePositiveValue(double value, String fieldName) {
+
+        if (value <= 0) {
+            throw new IllegalArgumentException(fieldName + " deve ser maior que zero.");
+        }
+    }
+
+    /**
+     * Valida valor não negativo.
+     */
+    protected void validateNonNegativeValue(double value, String fieldName) {
+
+        if (value < 0) {
+            throw new IllegalArgumentException(fieldName + " não pode ser negativo.");
+        }
+    }
+
+    // =========================
+    // Getters
+    // =========================
 
     public String getAccountNumber() {
         return accountNumber;
@@ -110,32 +237,51 @@ public abstract class Account implements Serializable {
         return balance;
     }
 
-    /**
-     * Retorna o extrato de transações como uma string formatada.
-     * 
-     * @return histórico de transações
-     */
-    public String getStatement() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(String.format("Extrato da conta %s - Titular: %s\n", accountNumber, holderName));
-        sb.append("---------------------------------------------\n");
-        for (String entry : transactions) {
-            sb.append(entry).append("\n");
-        }
-        sb.append(String.format("Saldo atual: R$ %.2f\n", balance));
-        return sb.toString();
+    public GenericLinkedList<String> getTransactions() {
+        return transactions;
     }
+
+    // =========================
+    // Setters controlados
+    // =========================
+
+    public void setHolderName(String holderName) {
+
+        validateHolderName(holderName);
+
+        this.holderName = holderName.trim();
+    }
+
+    // =========================
+    // Object methods
+    // =========================
 
     @Override
     public String toString() {
-        return String.format("%s | %s | Saldo: R$ %.2f", accountNumber, holderName, balance);
+
+        return String.format(
+                "%s | %s | Saldo: R$ %,.2f",
+                accountNumber,
+                holderName,
+                balance);
     }
 
-    // Método auxiliar protegido para adicionar transação (composição)
-    protected void addTransaction(String description, double amount) {
-        // Formata a entrada com data/hora simplificada (para evoluir para Transaction)
-        String entry = String.format("%s - %s: R$ %.2f",
-                java.time.LocalDateTime.now().toString(), description, amount);
-        transactions.add(entry);
+    @Override
+    public int hashCode() {
+        return Objects.hash(accountNumber);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+
+        if (this == obj) {
+            return true;
+        }
+
+        if (!(obj instanceof Account other)) {
+            return false;
+        }
+
+        return Objects.equals(accountNumber, other.accountNumber);
     }
 }
