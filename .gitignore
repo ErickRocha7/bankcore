@@ -1,0 +1,24 @@
+# Java
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Dados de persistência (arquivos binários gerados)
+data/*.ser
+logs/*.log
+
+# Manter diretórios vazios
+!.gitkeep
