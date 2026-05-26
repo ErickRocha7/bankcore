@@ -4,18 +4,8 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import domain.enums.TransactionType; // IMPORTAÇÃO CORRIGIDA
 
-/**
- * Representa uma transação bancária imutável.
- * Cada operação (depósito, saque, transferência etc.) gera um objeto
- * Transaction.
- *
- * Capítulos abordados:
- * 6, 8 – Classes, objetos, encapsulamento, composição
- * 14 – Strings e formatação (toString, String.format)
- * 15 – Serialização (implementa Serializable)
- * Utiliza UUID e BigDecimal, aproximando-se de sistemas reais.
- */
 public final class Transaction implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -23,8 +13,8 @@ public final class Transaction implements Serializable {
     private final TransactionType type;
     private final BigDecimal amount;
     private final String description;
-    private final String originAccount; // número da conta de origem (pode ser null para depósitos diretos)
-    private final String destinationAccount; // número da conta de destino (pode ser null para saques)
+    private final String originAccount;
+    private final String destinationAccount;
     private final LocalDateTime timestamp;
 
     // Construtor completo
@@ -44,15 +34,13 @@ public final class Transaction implements Serializable {
         this.timestamp = LocalDateTime.now();
     }
 
-    // Construtor simplificado para operações sem conta de destino (depósito/saque
-    // em conta única)
+    // Construtor simplificado
     public Transaction(TransactionType type, BigDecimal amount, String description, String accountNumber) {
         this(type, amount, description,
                 type == TransactionType.WITHDRAW ? accountNumber : null,
                 type == TransactionType.DEPOSIT ? accountNumber : null);
     }
 
-    // Getters
     public String getId() {
         return id;
     }
@@ -81,10 +69,6 @@ public final class Transaction implements Serializable {
         return timestamp;
     }
 
-    /**
-     * Retorna o valor com sinal apropriado para somar ao saldo.
-     * Exemplo: depósito positivo, saque negativo.
-     */
     public BigDecimal getSignedAmount() {
         return amount.multiply(BigDecimal.valueOf(type.getSign()));
     }

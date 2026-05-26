@@ -86,6 +86,16 @@ public abstract class Account implements Serializable {
      */
     public abstract void calculateInterest(int years);
 
+    /**
+     * Registra uma transação no histórico (método público para uso externo).
+     * 
+     * @param description descrição da transação
+     * @param amount      valor (positivo para crédito, negativo para débito)
+     */
+    public void recordTransaction(String description, double amount) {
+        addTransaction(description, amount);
+    }
+
     // Métodos acessadores
 
     public String getAccountNumber() {

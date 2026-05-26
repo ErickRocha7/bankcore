@@ -4,25 +4,16 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import domain.enums.TransactionType; // IMPORTAÇÃO CORRIGIDA
 
-/**
- * Representa um lançamento contábil individual (partida dobrada simplificada).
- * Cada entrada de ledger está associada a uma conta e pode ser de débito ou
- * crédito.
- *
- * Capítulos abordados:
- * 6, 8 – Classes, objetos, encapsulamento
- * 14 – Strings, formatação
- * 15 – Serialização
- */
 public final class LedgerEntry implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private final String id;
-    private final String accountNumber; // conta afetada
-    private final TransactionType type; // tipo de transação
-    private final BigDecimal amount; // valor absoluto da movimentação
-    private final BigDecimal signedAmount; // valor com sinal (positivo para crédito, negativo para débito)
+    private final String accountNumber;
+    private final TransactionType type;
+    private final BigDecimal amount;
+    private final BigDecimal signedAmount;
     private final String description;
     private final LocalDateTime timestamp;
 
@@ -44,7 +35,6 @@ public final class LedgerEntry implements Serializable {
         this.timestamp = LocalDateTime.now();
     }
 
-    // Getters
     public String getId() {
         return id;
     }
