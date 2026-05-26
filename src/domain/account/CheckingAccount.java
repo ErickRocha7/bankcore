@@ -1,57 +1,119 @@
+// src/domain/account/CheckingAccount.java
 package domain.account;
 
 import exceptions.InsufficientFundsException;
 
 /**
- * Conta Corrente que possui taxa de manutenção mensal e não rende juros.
+ * Representa uma conta corrente bancária.
  *
- * Cobertura:
- * 9  - Herança
- * 10 - Polimorfismo (calculateInterest)
- * 11 - Exceções (applyMaintenanceFee pode lançar InsufficientFundsException)
+ * Características:
+ * - Possui tarifa mensal de manutenção
+ * - Não possui rendimento automático
+ * - Permite débito de taxa administrativa
+ *
+ * Capítulos abordados:
+ * 9 - Herança
+ * 10 - Polimorfismo
+ * 11 - Exceções personalizadas
+ * 14 - Strings e formatação
  */
 public class CheckingAccount extends Account {
-    private double maintenanceFee; // taxa mensal de manutenção
 
-    public CheckingAccount(String holderName, double initialBalance, double maintenanceFee) {
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * Taxa mensal de manutenção da conta.
+     */
+    private double maintenanceFee;
+
+    /**
+     * Construtor da conta corrente.
+     *
+     * @param holderName     titular da conta
+     * @param initialBalance saldo inicial
+     * @param maintenanceFee taxa mensal de manutenção
+     */
+    public CheckingAccount(
+            String holderName,
+            double initialBalance,
+            double maintenanceFee) {
+
         super(holderName, initialBalance);
-        if (maintenanceFee < 0) {
-            throw new IllegalArgumentException("Taxa de manutenção não pode ser negativa.");
-        }
+
+        validateNonNegativeValue(maintenanceFee, "Taxa de manutenção");
+
         this.maintenanceFee = maintenanceFee;
     }
 
     /**
-     * Conta corrente normalmente não oferece rendimento.
-     * Apenas informa o saldo atual.
+     * Conta corrente não gera rendimento automático.
+     *
+     * @param years anos informados
      */
     @Override
     public void calculateInterest(int years) {
-        System.out.println("Conta corrente não possui rendimento automático.");
-        System.out.printf("Saldo atual da conta %s: R$ %.2f\n", getAccountNumber(), balance);
+
+        System.out.printf(
+                "Conta corrente %s não possui rendimento automático.%n",
+                getAccountNumber());
+
+        System.out.printf(
+                "Saldo atual: R$ %,.2f%n",
+                balance);
     }
 
     /**
-     * Aplica a taxa de manutenção mensal, debitando do saldo.
-     * @throws InsufficientFundsException se saldo insuficiente para cobrir a taxa
+     * Aplica tarifa de manutenção mensal.
+     *
+     * @throws InsufficientFundsException se saldo insuficiente
      */
     public void applyMaintenanceFee() throws InsufficientFundsException {
+
+        if (maintenanceFee <= 0) {
+            return;
+        }
+
         if (balance < maintenanceFee) {
             throw new InsufficientFundsException(
-                String.format("Saldo insuficiente para taxa de manutenção de R$ %.2f. Saldo: R$ %.2f",
-                        maintenanceFee, balance));
+                    String.format(
+                            "Saldo insuficiente para cobrança da tarifa mensal. "
+                                    + "Saldo atual: R$ %,.2f | Tarifa: R$ %,.2f",
+                            balance,
+                            maintenanceFee));
         }
+
         balance -= maintenanceFee;
-        addTransaction("Taxa de manutenção", -maintenanceFee);
-        System.out.printf("Taxa de manutenção de R$ %.2f aplicada na conta %s.\n", maintenanceFee, getAccountNumber());
+
+        addTransaction("Tarifa de manutenção", -maintenanceFee);
     }
 
+    /**
+     * Retorna a taxa de manutenção mensal.
+     *
+     * @return tarifa mensal
+     */
     public double getMaintenanceFee() {
         return maintenanceFee;
     }
 
+    /**
+     * Atualiza a taxa de manutenção.
+     *
+     * @param maintenanceFee nova tarifa
+     */
+    public void setMaintenanceFee(double maintenanceFee) {
+
+        validateNonNegativeValue(maintenanceFee, "Taxa de manutenção");
+
+        this.maintenanceFee = maintenanceFee;
+    }
+
     @Override
     public String toString() {
-        return "Corrente " + super.toString() + " | Taxa mensal: R$ " + maintenanceFee;
+
+        return String.format(
+                "Conta Corrente | %s | Tarifa mensal: R$ %,.2f",
+                super.toString(),
+                maintenanceFee);
     }
 }
