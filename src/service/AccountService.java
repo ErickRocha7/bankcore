@@ -271,7 +271,8 @@ public class AccountService {
 
             if (customer.getAccounts().contains(account)) {
 
-                customer.removeAccount(account);
+                // CORREÇÃO: chamar removeAccount com o número da conta (String)
+                customer.removeAccount(account.getAccountNumber());
 
                 logger.info(
                         "Conta "
