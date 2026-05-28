@@ -7,6 +7,7 @@ import java.util.Map;
 
 import domain.account.Account;
 import domain.customer.Customer;
+import exceptions.CustomerNotFoundException;
 import exceptions.UnauthorizedException;
 
 /**
@@ -29,10 +30,6 @@ import exceptions.UnauthorizedException;
  */
 public class CustomerRepository {
 
-    /**
-     * Estrutura principal de armazenamento.
-     * CPF -> Cliente
-     */
     private final Map<String, Customer> customers;
 
     /**
@@ -46,7 +43,7 @@ public class CustomerRepository {
      * Adiciona um novo cliente ao repositório.
      *
      * @param customer Cliente a ser adicionado
-     * @throws IllegalArgumentException se cliente for nulo
+     * @throws IllegalArgumentException se cliente for nulo ou CPF inválido
      * @throws IllegalArgumentException se CPF já existir
      */
     public void add(Customer customer) {
@@ -67,16 +64,16 @@ public class CustomerRepository {
      *
      * @param cpf CPF do cliente
      * @return Cliente encontrado
-     * @throws IllegalArgumentException se CPF for inválido
-     * @throws IllegalArgumentException se cliente não existir
+     * @throws CustomerNotFoundException se o cliente não existir
+     * @throws IllegalArgumentException  se o CPF for nulo ou vazio
      */
-    public Customer findByCpf(String cpf) {
+    public Customer findByCpf(String cpf) throws CustomerNotFoundException {
         validateCpf(cpf);
 
         Customer customer = customers.get(cpf);
 
         if (customer == null) {
-            throw new IllegalArgumentException(
+            throw new CustomerNotFoundException(
                     "Cliente com CPF " + cpf + " não encontrado.");
         }
 
@@ -88,10 +85,10 @@ public class CustomerRepository {
      *
      * @param cpf      CPF informado
      * @param password Senha informada
-     * @return true se autenticação bem-sucedida
-     * @throws UnauthorizedException se credenciais inválidas
+     * @throws UnauthorizedException    se credenciais inválidas
+     * @throws IllegalArgumentException se CPF for nulo/vazio
      */
-    public boolean authenticate(String cpf, String password)
+    public void authenticate(String cpf, String password)
             throws UnauthorizedException {
 
         validateCpf(cpf);
@@ -105,23 +102,22 @@ public class CustomerRepository {
         if (customer == null || !customer.authenticate(password)) {
             throw new UnauthorizedException("CPF ou senha inválidos.");
         }
-
-        return true;
     }
 
     /**
      * Atualiza os dados de um cliente já existente.
      *
      * @param customer Cliente atualizado
-     * @throws IllegalArgumentException se cliente não existir
+     * @throws CustomerNotFoundException se o cliente não existir
+     * @throws IllegalArgumentException  se o cliente for nulo ou CPF inválido
      */
-    public void update(Customer customer) {
+    public void update(Customer customer) throws CustomerNotFoundException {
         validateCustomer(customer);
 
         String cpf = customer.getCpf();
 
         if (!customers.containsKey(cpf)) {
-            throw new IllegalArgumentException(
+            throw new CustomerNotFoundException(
                     "Cliente com CPF " + cpf + " não encontrado para atualização.");
         }
 
@@ -132,15 +128,16 @@ public class CustomerRepository {
      * Remove cliente do repositório.
      *
      * @param cpf CPF do cliente
-     * @throws IllegalArgumentException se cliente não existir
+     * @throws CustomerNotFoundException se o cliente não existir
+     * @throws IllegalArgumentException  se o CPF for nulo/vazio
      */
-    public void delete(String cpf) {
+    public void delete(String cpf) throws CustomerNotFoundException {
         validateCpf(cpf);
 
         Customer removed = customers.remove(cpf);
 
         if (removed == null) {
-            throw new IllegalArgumentException(
+            throw new CustomerNotFoundException(
                     "Cliente com CPF " + cpf + " não encontrado.");
         }
     }
@@ -164,7 +161,6 @@ public class CustomerRepository {
         if (cpf == null || cpf.isBlank()) {
             return false;
         }
-
         return customers.containsKey(cpf);
     }
 
@@ -186,13 +182,11 @@ public class CustomerRepository {
 
     /**
      * Substitui completamente os dados internos.
-     * Utilizado principalmente na restauração de persistência.
      *
      * @param customers Novo mapa de clientes
      */
     public void replaceAll(Map<String, Customer> customers) {
         this.customers.clear();
-
         if (customers != null) {
             this.customers.putAll(customers);
         }
@@ -210,39 +204,27 @@ public class CustomerRepository {
     /**
      * Busca todas as contas pertencentes a um cliente.
      *
-     * Método utilitário adicional.
-     *
      * @param cpf CPF do cliente
      * @return Lista de contas
+     * @throws CustomerNotFoundException se o cliente não existir
      */
-    public List<Account> getCustomerAccounts(String cpf) {
+    public List<Account> getCustomerAccounts(String cpf) throws CustomerNotFoundException {
         Customer customer = findByCpf(cpf);
-
         return new ArrayList<>(customer.getAccounts());
     }
 
-    /**
-     * Valida objeto Customer.
-     */
+    // --- métodos auxiliares de validação ---
+
     private void validateCustomer(Customer customer) {
         if (customer == null) {
-            throw new IllegalArgumentException(
-                    "Cliente não pode ser nulo.");
+            throw new IllegalArgumentException("Cliente não pode ser nulo.");
         }
-
         validateCpf(customer.getCpf());
     }
 
-    /**
-     * Validação básica de CPF.
-     *
-     * Não valida dígitos verificadores,
-     * apenas integridade mínima estrutural.
-     */
     private void validateCpf(String cpf) {
         if (cpf == null || cpf.isBlank()) {
-            throw new IllegalArgumentException(
-                    "CPF não pode ser nulo ou vazio.");
+            throw new IllegalArgumentException("CPF não pode ser nulo ou vazio.");
         }
     }
 }

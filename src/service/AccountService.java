@@ -5,6 +5,7 @@ import domain.account.CheckingAccount;
 import domain.account.SavingsAccount;
 import domain.customer.Customer;
 import exceptions.AccountNotFoundException;
+import exceptions.CustomerNotFoundException;
 import exceptions.InsufficientFundsException;
 import infrastructure.logging.AuditLogger;
 import repository.AccountRepository;
@@ -15,6 +16,20 @@ import java.util.List;
 
 /**
  * Serviço responsável pelas operações relacionadas às contas bancárias.
+ *
+ * Funcionalidades:
+ * - Criação de contas
+ * - Depósito
+ * - Saque
+ * - Encerramento de contas
+ * - Consulta de contas
+ *
+ * Capítulos abordados:
+ * 6 - Métodos e encapsulamento
+ * 8 - Composição entre objetos
+ * 10 - Polimorfismo
+ * 11 - Tratamento de exceções
+ * 15 - Logging e persistência conceitual
  */
 public class AccountService {
 
@@ -22,7 +37,9 @@ public class AccountService {
     private final CustomerRepository customerRepo;
     private final AuditLogger logger;
 
-    public AccountService(AccountRepository accountRepo, CustomerRepository customerRepo, AuditLogger logger) {
+    public AccountService(AccountRepository accountRepo,
+            CustomerRepository customerRepo,
+            AuditLogger logger) {
         if (accountRepo == null)
             throw new IllegalArgumentException("AccountRepository não pode ser nulo.");
         if (customerRepo == null)
@@ -35,15 +52,22 @@ public class AccountService {
     }
 
     /**
-     * Cria uma nova conta.
+     * Cria uma nova conta para um cliente existente.
      *
      * @param cpf            CPF do cliente
      * @param type           "poupanca" ou "corrente"
      * @param initialBalance saldo inicial (BigDecimal)
      * @param extraRateOrFee taxa de juros (poupança) ou tarifa (corrente) como
      *                       BigDecimal
+     * @return Conta criada
+     * @throws CustomerNotFoundException se o cliente não existir
+     * @throws IllegalArgumentException  se parâmetros inválidos
      */
-    public Account createAccount(String cpf, String type, BigDecimal initialBalance, BigDecimal extraRateOrFee) {
+    public Account createAccount(String cpf, String type,
+            BigDecimal initialBalance,
+            BigDecimal extraRateOrFee)
+            throws CustomerNotFoundException {
+
         validateCpf(cpf);
         validateAccountType(type);
         if (initialBalance.compareTo(BigDecimal.ZERO) < 0)
@@ -51,11 +75,11 @@ public class AccountService {
         if (extraRateOrFee.compareTo(BigDecimal.ZERO) < 0)
             throw new IllegalArgumentException("Taxa ou tarifa não pode ser negativa.");
 
+        // Lança CustomerNotFoundException se o cliente não existir
         Customer customer = customerRepo.findByCpf(cpf);
         Account account;
 
         if (type.equalsIgnoreCase("poupanca")) {
-            // para poupança, extraRateOrFee representa a taxa de juros (double)
             double rate = extraRateOrFee.doubleValue();
             account = new SavingsAccount(customer.getName(), initialBalance, rate);
         } else {
@@ -67,22 +91,34 @@ public class AccountService {
 
         logger.info("Conta criada | Número: " + account.getAccountNumber() +
                 " | Cliente: " + customer.getCpf() + " | Tipo: " + type);
+
         return account;
     }
 
     /**
      * Realiza depósito em uma conta.
+     *
+     * @param accountNumber número da conta
+     * @param amount        valor do depósito (BigDecimal)
+     * @throws AccountNotFoundException se a conta não existir
      */
-    public void deposit(String accountNumber, BigDecimal amount) throws AccountNotFoundException {
+    public void deposit(String accountNumber, BigDecimal amount)
+            throws AccountNotFoundException {
         validateAccountNumber(accountNumber);
         validatePositiveAmount(amount);
         Account account = accountRepo.findById(accountNumber);
         account.deposit(amount);
-        logger.info("Depósito realizado | Conta: " + accountNumber + " | Valor: R$ " + amount);
+        logger.info("Depósito realizado | Conta: " + accountNumber +
+                " | Valor: R$ " + amount);
     }
 
     /**
-     * Realiza saque.
+     * Realiza saque em uma conta.
+     *
+     * @param accountNumber número da conta
+     * @param amount        valor do saque (BigDecimal)
+     * @throws AccountNotFoundException   se a conta não existir
+     * @throws InsufficientFundsException se saldo insuficiente
      */
     public void withdraw(String accountNumber, BigDecimal amount)
             throws AccountNotFoundException, InsufficientFundsException {
@@ -90,10 +126,19 @@ public class AccountService {
         validatePositiveAmount(amount);
         Account account = accountRepo.findById(accountNumber);
         account.withdraw(amount);
-        logger.info("Saque realizado | Conta: " + accountNumber + " | Valor: R$ " + amount);
+        logger.info("Saque realizado | Conta: " + accountNumber +
+                " | Valor: R$ " + amount);
     }
 
-    public Account findAccount(String accountNumber) throws AccountNotFoundException {
+    /**
+     * Busca conta pelo número.
+     *
+     * @param accountNumber número da conta
+     * @return Conta encontrada
+     * @throws AccountNotFoundException se a conta não existir
+     */
+    public Account findAccount(String accountNumber)
+            throws AccountNotFoundException {
         validateAccountNumber(accountNumber);
         return accountRepo.findById(accountNumber);
     }
@@ -107,29 +152,47 @@ public class AccountService {
     }
 
     public boolean accountExists(String accountNumber) {
-        return accountNumber != null && !accountNumber.isBlank() && accountRepo.exists(accountNumber);
+        return accountNumber != null && !accountNumber.isBlank()
+                && accountRepo.exists(accountNumber);
     }
 
-    public void closeAccount(String accountNumber) throws AccountNotFoundException {
+    /**
+     * Encerra uma conta.
+     *
+     * @param accountNumber número da conta
+     * @throws AccountNotFoundException se a conta não existir
+     */
+    public void closeAccount(String accountNumber)
+            throws AccountNotFoundException {
         validateAccountNumber(accountNumber);
         Account account = accountRepo.findById(accountNumber);
+
         if (account.getBalance().compareTo(BigDecimal.ZERO) != 0) {
-            throw new IllegalStateException("A conta não pode ser encerrada porque possui saldo diferente de zero.");
+            throw new IllegalStateException(
+                    "A conta não pode ser encerrada porque possui saldo diferente de zero.");
         }
+
         removeAccountFromOwner(account);
         accountRepo.delete(accountNumber);
         logger.info("Conta encerrada | Conta: " + accountNumber);
     }
 
+    /**
+     * Remove a conta do cliente proprietário, percorrendo todos os clientes.
+     */
     private void removeAccountFromOwner(Account account) {
-        for (Customer customer : customerRepo.findAll()) {
+        List<Customer> customers = customerRepo.findAll();
+        for (Customer customer : customers) {
             if (customer.getAccounts().contains(account)) {
                 customer.removeAccount(account.getAccountNumber());
-                logger.info("Conta " + account.getAccountNumber() + " removida do cliente " + customer.getCpf());
+                logger.info("Conta " + account.getAccountNumber() +
+                        " removida do cliente " + customer.getCpf());
                 return;
             }
         }
     }
+
+    // --- validações internas ---
 
     private void validateCpf(String cpf) {
         if (cpf == null || cpf.isBlank())
@@ -139,8 +202,7 @@ public class AccountService {
     private void validateAccountType(String type) {
         if (type == null || type.isBlank())
             throw new IllegalArgumentException("Tipo de conta não pode ser vazio.");
-        boolean valid = type.equalsIgnoreCase("poupanca") || type.equalsIgnoreCase("corrente");
-        if (!valid)
+        if (!type.equalsIgnoreCase("poupanca") && !type.equalsIgnoreCase("corrente"))
             throw new IllegalArgumentException("Tipo de conta inválido. Use 'poupanca' ou 'corrente'.");
     }
 
