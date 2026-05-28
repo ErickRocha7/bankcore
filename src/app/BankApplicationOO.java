@@ -6,6 +6,7 @@ import exceptions.*;
 import infrastructure.logging.AuditLogger;
 import repository.CustomerRepository;
 import service.*;
+import util.CurrencyFormatter;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.Scanner;
 /**
  * Aplicação bancária orientada a objetos (fase 2).
  * Utiliza os serviços e repositórios do domínio.
+ * Trata entrada e saída monetária no padrão brasileiro (vírgula).
  */
 public class BankApplicationOO {
 
@@ -23,7 +25,7 @@ public class BankApplicationOO {
     private final LedgerService ledgerService;
     private final InterestService interestService;
     private final AuditLogger logger;
-    private final CustomerRepository customerRepo; // novo campo
+    private final CustomerRepository customerRepo;
     private final Scanner scanner;
 
     private Customer currentCustomer;
@@ -34,7 +36,7 @@ public class BankApplicationOO {
             LedgerService ledgerService,
             InterestService interestService,
             AuditLogger logger,
-            CustomerRepository customerRepo) { // novo parâmetro
+            CustomerRepository customerRepo) {
         this.authService = authService;
         this.accountService = accountService;
         this.transferService = transferService;
@@ -55,7 +57,7 @@ public class BankApplicationOO {
                     int option = readInt("Opção: ");
                     switch (option) {
                         case 1 -> login();
-                        case 2 -> registerCustomer(); // nova opção
+                        case 2 -> registerCustomer();
                         case 0 -> exit = true;
                         default -> System.out.println("Opção inválida.");
                     }
@@ -130,7 +132,6 @@ public class BankApplicationOO {
         String password = scanner.nextLine();
 
         try {
-            // A própria classe Customer valida CPF, nome e senha
             Customer newCustomer = new Customer(cpf, name, password);
             customerRepo.add(newCustomer);
             System.out.println("Cliente cadastrado com sucesso!");
@@ -143,8 +144,8 @@ public class BankApplicationOO {
     private void displayBalance() throws AccountNotFoundException {
         String accNum = selectAccount("consultar saldo");
         Account acc = accountService.findAccount(accNum);
-        System.out.printf("Saldo da conta %s: R$ %s%n",
-                accNum, acc.getBalance().toPlainString());
+        System.out.printf("Saldo da conta %s: %s%n",
+                accNum, CurrencyFormatter.format(acc.getBalance()));
     }
 
     private void deposit() throws AccountNotFoundException {
@@ -187,11 +188,11 @@ public class BankApplicationOO {
         for (Account acc : interestAccounts) {
             try {
                 BigDecimal projected = interestService.calculateProjectedValue(acc, years);
-                System.out.printf("Conta %s: Saldo atual R$ %s -> Projeção em %d ano(s): R$ %s%n",
+                System.out.printf("Conta %s: Saldo atual %s -> Projeção em %d ano(s): %s%n",
                         acc.getAccountNumber(),
-                        acc.getBalance().toPlainString(),
+                        CurrencyFormatter.format(acc.getBalance()),
                         years,
-                        projected.toPlainString());
+                        CurrencyFormatter.format(projected));
             } catch (Exception e) {
                 System.out
                         .println("Erro ao projetar juros para conta " + acc.getAccountNumber() + ": " + e.getMessage());
@@ -227,7 +228,12 @@ public class BankApplicationOO {
         } else {
             System.out.println("--- Minhas Contas ---");
             for (Account acc : accounts) {
-                System.out.println(acc);
+                String tipo = acc.getClass().getSimpleName().replace("Account", "");
+                System.out.printf("%s %s | %s | Saldo: %s%n",
+                        tipo,
+                        acc.getAccountNumber(),
+                        acc.getHolderName(),
+                        CurrencyFormatter.format(acc.getBalance()));
             }
         }
     }
@@ -267,10 +273,18 @@ public class BankApplicationOO {
         return value;
     }
 
+    /**
+     * Lê um valor monetário do teclado, aceitando vírgula ou ponto.
+     */
     private BigDecimal readBigDecimal(String prompt) {
-        System.out.print(prompt);
-        BigDecimal value = scanner.nextBigDecimal();
-        scanner.nextLine();
-        return value;
+        while (true) {
+            try {
+                System.out.print(prompt);
+                String input = scanner.nextLine();
+                return CurrencyFormatter.parse(input);
+            } catch (NumberFormatException e) {
+                System.out.println("Valor inválido. Use o formato 1.500,00 ou 1500.50");
+            }
+        }
     }
 }

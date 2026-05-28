@@ -2,13 +2,13 @@ package domain.account;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
 import collections.GenericLinkedList;
 import exceptions.InsufficientFundsException;
+import util.CurrencyFormatter;
 
 /**
  * Classe abstrata que representa uma conta bancária genérica.
@@ -34,7 +34,7 @@ public abstract class Account implements Serializable {
 
     private final String accountNumber;
     private String holderName;
-    protected BigDecimal balance; // alterado para BigDecimal
+    protected BigDecimal balance;
     protected GenericLinkedList<String> transactions;
 
     /**
@@ -78,9 +78,9 @@ public abstract class Account implements Serializable {
         if (amount.compareTo(balance) > 0) {
             throw new InsufficientFundsException(
                     String.format(
-                            "Saldo insuficiente. Saldo atual: R$ %s | Valor solicitado: R$ %s",
-                            balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString(),
-                            amount.setScale(2, RoundingMode.HALF_EVEN).toPlainString()));
+                            "Saldo insuficiente. Saldo atual: %s | Valor solicitado: %s",
+                            CurrencyFormatter.format(balance),
+                            CurrencyFormatter.format(amount)));
         }
 
         balance = balance.subtract(amount);
@@ -116,10 +116,10 @@ public abstract class Account implements Serializable {
     protected void addTransaction(String description, BigDecimal amount) {
         String timestamp = LocalDateTime.now().format(DATE_FORMATTER);
         String entry = String.format(
-                "[%s] %-30s R$ %s",
+                "[%s] %-30s %s",
                 timestamp,
                 description,
-                amount.setScale(2, RoundingMode.HALF_EVEN).toPlainString());
+                CurrencyFormatter.format(amount));
         transactions.add(entry);
     }
 
@@ -144,8 +144,8 @@ public abstract class Account implements Serializable {
         }
 
         sb.append("=============================================\n");
-        sb.append(String.format("Saldo atual: R$ %s\n",
-                balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString()));
+        sb.append(String.format("Saldo atual: %s\n",
+                CurrencyFormatter.format(balance)));
 
         return sb.toString();
     }
@@ -179,10 +179,21 @@ public abstract class Account implements Serializable {
     }
 
     // Getters
-    public String getAccountNumber() { return accountNumber; }
-    public String getHolderName() { return holderName; }
-    public BigDecimal getBalance() { return balance; }
-    public GenericLinkedList<String> getTransactions() { return transactions; }
+    public String getAccountNumber() {
+        return accountNumber;
+    }
+
+    public String getHolderName() {
+        return holderName;
+    }
+
+    public BigDecimal getBalance() {
+        return balance;
+    }
+
+    public GenericLinkedList<String> getTransactions() {
+        return transactions;
+    }
 
     // Setters
     public void setHolderName(String holderName) {
@@ -192,19 +203,23 @@ public abstract class Account implements Serializable {
 
     @Override
     public String toString() {
-        return String.format("%s | %s | Saldo: R$ %s",
+        return String.format("%s | %s | Saldo: %s",
                 accountNumber,
                 holderName,
-                balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString());
+                CurrencyFormatter.format(balance));
     }
 
     @Override
-    public int hashCode() { return Objects.hash(accountNumber); }
+    public int hashCode() {
+        return Objects.hash(accountNumber);
+    }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof Account other)) return false;
+        if (this == obj)
+            return true;
+        if (!(obj instanceof Account other))
+            return false;
         return Objects.equals(accountNumber, other.accountNumber);
     }
 }
