@@ -4,6 +4,7 @@ import domain.account.Account;
 import domain.customer.Customer;
 import exceptions.*;
 import infrastructure.logging.AuditLogger;
+import repository.CustomerRepository;
 import service.*;
 
 import java.math.BigDecimal;
@@ -22,6 +23,7 @@ public class BankApplicationOO {
     private final LedgerService ledgerService;
     private final InterestService interestService;
     private final AuditLogger logger;
+    private final CustomerRepository customerRepo; // novo campo
     private final Scanner scanner;
 
     private Customer currentCustomer;
@@ -31,13 +33,15 @@ public class BankApplicationOO {
             TransferService transferService,
             LedgerService ledgerService,
             InterestService interestService,
-            AuditLogger logger) {
+            AuditLogger logger,
+            CustomerRepository customerRepo) { // novo parâmetro
         this.authService = authService;
         this.accountService = accountService;
         this.transferService = transferService;
         this.ledgerService = ledgerService;
         this.interestService = interestService;
         this.logger = logger;
+        this.customerRepo = customerRepo;
         this.scanner = new Scanner(System.in);
     }
 
@@ -51,6 +55,7 @@ public class BankApplicationOO {
                     int option = readInt("Opção: ");
                     switch (option) {
                         case 1 -> login();
+                        case 2 -> registerCustomer(); // nova opção
                         case 0 -> exit = true;
                         default -> System.out.println("Opção inválida.");
                     }
@@ -83,6 +88,7 @@ public class BankApplicationOO {
     private void showMainMenu() {
         System.out.println("\n--- MENU PRINCIPAL ---");
         System.out.println("1. Login");
+        System.out.println("2. Cadastrar cliente");
         System.out.println("0. Sair");
     }
 
@@ -111,6 +117,26 @@ public class BankApplicationOO {
             System.out.println("Login bem-sucedido! Bem-vindo, " + currentCustomer.getName());
         } catch (UnauthorizedException | CustomerNotFoundException e) {
             System.out.println("Falha no login: " + e.getMessage());
+        }
+    }
+
+    private void registerCustomer() {
+        System.out.println("\n--- CADASTRO DE CLIENTE ---");
+        System.out.print("CPF (formato 000.000.000-00): ");
+        String cpf = scanner.nextLine();
+        System.out.print("Nome completo: ");
+        String name = scanner.nextLine();
+        System.out.print("Senha (mínimo 4 caracteres): ");
+        String password = scanner.nextLine();
+
+        try {
+            // A própria classe Customer valida CPF, nome e senha
+            Customer newCustomer = new Customer(cpf, name, password);
+            customerRepo.add(newCustomer);
+            System.out.println("Cliente cadastrado com sucesso!");
+            logger.info("Novo cliente cadastrado: " + cpf);
+        } catch (IllegalArgumentException e) {
+            System.out.println("Erro ao cadastrar: " + e.getMessage());
         }
     }
 

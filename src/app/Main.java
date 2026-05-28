@@ -43,10 +43,12 @@ public class Main {
         LedgerService ledgerService = new LedgerService(accountRepo, logger);
         InterestService interestService = new InterestService(accountRepo, logger);
 
-        // 5. Aplicação
+        // 5. Aplicação (agora recebe também o customerRepo)
         BankApplicationOO app = new BankApplicationOO(
                 authService, accountService, transferService,
-                ledgerService, interestService, logger);
+                ledgerService, interestService, logger,
+                customerRepo);
+
         app.run();
 
         // 6. Salvar dados ao encerrar

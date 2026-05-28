@@ -1,5 +1,6 @@
 package domain.account;
 
+import domain.interfaces.InterestBearing; // import necessário
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -11,7 +12,7 @@ import java.math.RoundingMode;
  * 10 - Polimorfismo (override de calculateInterest)
  * 18 - Recursão (método privado compoundInterest)
  */
-public class SavingsAccount extends Account {
+public class SavingsAccount extends Account implements InterestBearing {
     private double interestRate; // taxa de juros anual em percentual (ex: 5.0 para 5%)
 
     public SavingsAccount(String holderName, BigDecimal initialBalance, double interestRate) {
@@ -51,6 +52,7 @@ public class SavingsAccount extends Account {
         }
     }
 
+    @Override
     public double getInterestRate() {
         return interestRate;
     }
