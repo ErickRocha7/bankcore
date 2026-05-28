@@ -1,4 +1,4 @@
-package app;
+package app.legacy;
 
 import java.util.Scanner;
 
@@ -16,7 +16,7 @@ import java.util.Scanner;
  * Evolução futura: substituir as variáveis estáticas por uma classe Account,
  * extrair lógica para classes de domínio e adicionar coleções/herança.
  */
-public class BankApplication {
+public class BankApplicationProcedural {
 
     // Variáveis globais para simular uma única conta (evoluirão para atributos de
     // objeto)
