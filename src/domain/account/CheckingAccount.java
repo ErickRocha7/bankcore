@@ -1,5 +1,7 @@
-// src/domain/account/CheckingAccount.java
 package domain.account;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import exceptions.InsufficientFundsException;
 
@@ -21,45 +23,26 @@ public class CheckingAccount extends Account {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Taxa mensal de manutenção da conta.
-     */
-    private double maintenanceFee;
+    private BigDecimal maintenanceFee; // BigDecimal
 
     /**
      * Construtor da conta corrente.
      *
      * @param holderName     titular da conta
-     * @param initialBalance saldo inicial
-     * @param maintenanceFee taxa mensal de manutenção
+     * @param initialBalance saldo inicial (BigDecimal)
+     * @param maintenanceFee taxa mensal de manutenção (BigDecimal)
      */
-    public CheckingAccount(
-            String holderName,
-            double initialBalance,
-            double maintenanceFee) {
-
+    public CheckingAccount(String holderName, BigDecimal initialBalance, BigDecimal maintenanceFee) {
         super(holderName, initialBalance);
-
         validateNonNegativeValue(maintenanceFee, "Taxa de manutenção");
-
         this.maintenanceFee = maintenanceFee;
     }
 
-    /**
-     * Conta corrente não gera rendimento automático.
-     *
-     * @param years anos informados
-     */
     @Override
     public void calculateInterest(int years) {
-
-        System.out.printf(
-                "Conta corrente %s não possui rendimento automático.%n",
-                getAccountNumber());
-
-        System.out.printf(
-                "Saldo atual: R$ %,.2f%n",
-                balance);
+        System.out.printf("Conta corrente %s não possui rendimento automático.%n", getAccountNumber());
+        System.out.printf("Saldo atual: R$ %s%n",
+                balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString());
     }
 
     /**
@@ -68,52 +51,33 @@ public class CheckingAccount extends Account {
      * @throws InsufficientFundsException se saldo insuficiente
      */
     public void applyMaintenanceFee() throws InsufficientFundsException {
-
-        if (maintenanceFee <= 0) {
+        if (maintenanceFee.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
-
-        if (balance < maintenanceFee) {
+        if (balance.compareTo(maintenanceFee) < 0) {
             throw new InsufficientFundsException(
-                    String.format(
-                            "Saldo insuficiente para cobrança da tarifa mensal. "
-                                    + "Saldo atual: R$ %,.2f | Tarifa: R$ %,.2f",
-                            balance,
-                            maintenanceFee));
+                    String.format("Saldo insuficiente para cobrança da tarifa mensal. "
+                            + "Saldo atual: R$ %s | Tarifa: R$ %s",
+                            balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString(),
+                            maintenanceFee.setScale(2, RoundingMode.HALF_EVEN).toPlainString()));
         }
-
-        balance -= maintenanceFee;
-
-        addTransaction("Tarifa de manutenção", -maintenanceFee);
+        balance = balance.subtract(maintenanceFee);
+        addTransaction("Tarifa de manutenção", maintenanceFee.negate());
     }
 
-    /**
-     * Retorna a taxa de manutenção mensal.
-     *
-     * @return tarifa mensal
-     */
-    public double getMaintenanceFee() {
+    public BigDecimal getMaintenanceFee() {
         return maintenanceFee;
     }
 
-    /**
-     * Atualiza a taxa de manutenção.
-     *
-     * @param maintenanceFee nova tarifa
-     */
-    public void setMaintenanceFee(double maintenanceFee) {
-
+    public void setMaintenanceFee(BigDecimal maintenanceFee) {
         validateNonNegativeValue(maintenanceFee, "Taxa de manutenção");
-
         this.maintenanceFee = maintenanceFee;
     }
 
     @Override
     public String toString() {
-
-        return String.format(
-                "Conta Corrente | %s | Tarifa mensal: R$ %,.2f",
+        return String.format("Conta Corrente | %s | Tarifa mensal: R$ %s",
                 super.toString(),
-                maintenanceFee);
+                maintenanceFee.setScale(2, RoundingMode.HALF_EVEN).toPlainString());
     }
 }

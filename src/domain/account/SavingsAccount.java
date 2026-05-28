@@ -1,9 +1,10 @@
 package domain.account;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 /**
  * Conta Poupança que rende juros compostos anuais.
- * Implementa cálculo recursivo de juros e pode implementar InterestBearing no
- * futuro.
  *
  * Cobertura:
  * 9 - Herança (extends Account)
@@ -13,7 +14,7 @@ package domain.account;
 public class SavingsAccount extends Account {
     private double interestRate; // taxa de juros anual em percentual (ex: 5.0 para 5%)
 
-    public SavingsAccount(String holderName, double initialBalance, double interestRate) {
+    public SavingsAccount(String holderName, BigDecimal initialBalance, double interestRate) {
         super(holderName, initialBalance);
         if (interestRate < 0) {
             throw new IllegalArgumentException("Taxa de juros não pode ser negativa.");
@@ -23,8 +24,8 @@ public class SavingsAccount extends Account {
 
     /**
      * Calcula e exibe a projeção do saldo com juros compostos ao longo de anos.
-     * Utiliza método recursivo privado.
-     * 
+     * Utiliza método recursivo privado (double para o cálculo).
+     *
      * @param years quantidade de anos
      */
     @Override
@@ -33,12 +34,15 @@ public class SavingsAccount extends Account {
             System.out.println("Número de anos inválido.");
             return;
         }
-        double futureValue = compoundInterest(balance, interestRate / 100.0, years);
-        System.out.printf("Poupança %s: após %d ano(s) a %.2f%% a.a., saldo projetado = R$ %.2f\n",
-                getAccountNumber(), years, interestRate, futureValue);
+        double principal = balance.doubleValue(); // conversão para cálculo
+        double rate = interestRate / 100.0;
+        double futureValue = compoundInterest(principal, rate, years);
+        System.out.printf("Poupança %s: após %d ano(s) a %.2f%% a.a., saldo projetado = R$ %s\n",
+                getAccountNumber(), years, interestRate,
+                BigDecimal.valueOf(futureValue).setScale(2, RoundingMode.HALF_EVEN).toPlainString());
     }
 
-    // Método recursivo: cálculo de juros compostos (Cap 18)
+    // Método recursivo: cálculo de juros compostos (double)
     private double compoundInterest(double principal, double rate, int years) {
         if (years == 0) {
             return principal;
@@ -47,7 +51,6 @@ public class SavingsAccount extends Account {
         }
     }
 
-    // Getters específicos
     public double getInterestRate() {
         return interestRate;
     }

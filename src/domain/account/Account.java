@@ -1,7 +1,8 @@
-// src/domain/account/Account.java
 package domain.account;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
@@ -27,46 +28,22 @@ public abstract class Account implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Contador sequencial simples para geração de contas.
-     */
     private static int accountCounter = 10000;
 
-    /**
-     * Formatação padrão de data/hora.
-     */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    /**
-     * Número da conta.
-     * Imutável após criação.
-     */
     private final String accountNumber;
-
-    /**
-     * Nome do titular.
-     */
     private String holderName;
-
-    /**
-     * Saldo da conta.
-     * Protected para acesso controlado pelas subclasses.
-     */
-    protected double balance;
-
-    /**
-     * Histórico textual simplificado de transações.
-     */
+    protected BigDecimal balance; // alterado para BigDecimal
     protected GenericLinkedList<String> transactions;
 
     /**
      * Construtor principal.
      *
      * @param holderName     titular da conta
-     * @param initialBalance saldo inicial
+     * @param initialBalance saldo inicial (BigDecimal)
      */
-    public Account(String holderName, double initialBalance) {
-
+    public Account(String holderName, BigDecimal initialBalance) {
         validateHolderName(holderName);
         validateNonNegativeValue(initialBalance, "Saldo inicial");
 
@@ -81,38 +58,33 @@ public abstract class Account implements Serializable {
     /**
      * Deposita um valor na conta.
      *
-     * @param amount valor do depósito
+     * @param amount valor do depósito (BigDecimal)
      */
-    public void deposit(double amount) {
-
+    public void deposit(BigDecimal amount) {
         validatePositiveValue(amount, "Depósito");
-
-        balance += amount;
-
+        balance = balance.add(amount);
         addTransaction("Depósito", amount);
     }
 
     /**
      * Realiza saque da conta.
      *
-     * @param amount valor do saque
+     * @param amount valor do saque (BigDecimal)
      * @throws InsufficientFundsException se não houver saldo suficiente
      */
-    public void withdraw(double amount) throws InsufficientFundsException {
-
+    public void withdraw(BigDecimal amount) throws InsufficientFundsException {
         validatePositiveValue(amount, "Saque");
 
-        if (amount > balance) {
+        if (amount.compareTo(balance) > 0) {
             throw new InsufficientFundsException(
                     String.format(
-                            "Saldo insuficiente. Saldo atual: R$ %.2f | Valor solicitado: R$ %.2f",
-                            balance,
-                            amount));
+                            "Saldo insuficiente. Saldo atual: R$ %s | Valor solicitado: R$ %s",
+                            balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString(),
+                            amount.setScale(2, RoundingMode.HALF_EVEN).toPlainString()));
         }
 
-        balance -= amount;
-
-        addTransaction("Saque", -amount);
+        balance = balance.subtract(amount);
+        addTransaction("Saque", amount.negate());
     }
 
     /**
@@ -126,14 +98,12 @@ public abstract class Account implements Serializable {
      * Registra uma transação manualmente.
      *
      * @param description descrição
-     * @param amount      valor
+     * @param amount      valor (BigDecimal)
      */
-    public void recordTransaction(String description, double amount) {
-
+    public void recordTransaction(String description, BigDecimal amount) {
         if (description == null || description.isBlank()) {
             throw new IllegalArgumentException("Descrição da transação não pode ser vazia.");
         }
-
         addTransaction(description, amount);
     }
 
@@ -141,18 +111,15 @@ public abstract class Account implements Serializable {
      * Adiciona uma entrada ao histórico.
      *
      * @param description descrição
-     * @param amount      valor
+     * @param amount      valor (BigDecimal)
      */
-    protected void addTransaction(String description, double amount) {
-
+    protected void addTransaction(String description, BigDecimal amount) {
         String timestamp = LocalDateTime.now().format(DATE_FORMATTER);
-
         String entry = String.format(
-                "[%s] %-30s R$ %,.2f",
+                "[%s] %-30s R$ %s",
                 timestamp,
                 description,
-                amount);
-
+                amount.setScale(2, RoundingMode.HALF_EVEN).toPlainString());
         transactions.add(entry);
     }
 
@@ -162,9 +129,7 @@ public abstract class Account implements Serializable {
      * @return extrato formatado
      */
     public String getStatement() {
-
         StringBuilder sb = new StringBuilder();
-
         sb.append("=============================================\n");
         sb.append(String.format("Conta: %s\n", accountNumber));
         sb.append(String.format("Titular: %s\n", holderName));
@@ -179,109 +144,67 @@ public abstract class Account implements Serializable {
         }
 
         sb.append("=============================================\n");
-        sb.append(String.format("Saldo atual: R$ %,.2f\n", balance));
+        sb.append(String.format("Saldo atual: R$ %s\n",
+                balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString()));
 
         return sb.toString();
     }
 
-    /**
-     * Gera número sequencial formatado.
-     */
     private static String generateAccountNumber() {
         return String.format("%05d", ++accountCounter);
     }
 
-    /**
-     * Valida nome do titular.
-     */
     private void validateHolderName(String holderName) {
-
         if (holderName == null || holderName.isBlank()) {
             throw new IllegalArgumentException("Nome do titular não pode ser vazio.");
         }
     }
 
     /**
-     * Valida valor positivo.
+     * Valida valor positivo (BigDecimal).
      */
-    protected void validatePositiveValue(double value, String fieldName) {
-
-        if (value <= 0) {
+    protected void validatePositiveValue(BigDecimal value, String fieldName) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(fieldName + " deve ser maior que zero.");
         }
     }
 
     /**
-     * Valida valor não negativo.
+     * Valida valor não negativo (BigDecimal).
      */
-    protected void validateNonNegativeValue(double value, String fieldName) {
-
-        if (value < 0) {
+    protected void validateNonNegativeValue(BigDecimal value, String fieldName) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException(fieldName + " não pode ser negativo.");
         }
     }
 
-    // =========================
     // Getters
-    // =========================
+    public String getAccountNumber() { return accountNumber; }
+    public String getHolderName() { return holderName; }
+    public BigDecimal getBalance() { return balance; }
+    public GenericLinkedList<String> getTransactions() { return transactions; }
 
-    public String getAccountNumber() {
-        return accountNumber;
-    }
-
-    public String getHolderName() {
-        return holderName;
-    }
-
-    public double getBalance() {
-        return balance;
-    }
-
-    public GenericLinkedList<String> getTransactions() {
-        return transactions;
-    }
-
-    // =========================
-    // Setters controlados
-    // =========================
-
+    // Setters
     public void setHolderName(String holderName) {
-
         validateHolderName(holderName);
-
         this.holderName = holderName.trim();
     }
 
-    // =========================
-    // Object methods
-    // =========================
-
     @Override
     public String toString() {
-
-        return String.format(
-                "%s | %s | Saldo: R$ %,.2f",
+        return String.format("%s | %s | Saldo: R$ %s",
                 accountNumber,
                 holderName,
-                balance);
+                balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString());
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(accountNumber);
-    }
+    public int hashCode() { return Objects.hash(accountNumber); }
 
     @Override
     public boolean equals(Object obj) {
-
-        if (this == obj) {
-            return true;
-        }
-
-        if (!(obj instanceof Account other)) {
-            return false;
-        }
-
+        if (this == obj) return true;
+        if (!(obj instanceof Account other)) return false;
         return Objects.equals(accountNumber, other.accountNumber);
     }
 }
