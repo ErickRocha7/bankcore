@@ -3,6 +3,7 @@ package domain.account;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+import domain.enums.TransactionType;
 import exceptions.InsufficientFundsException;
 
 /**
@@ -38,15 +39,9 @@ public class CheckingAccount extends Account {
         this.maintenanceFee = maintenanceFee;
     }
 
-    @Override
-    public void calculateInterest(int years) {
-        System.out.printf("Conta corrente %s não possui rendimento automático.%n", getAccountNumber());
-        System.out.printf("Saldo atual: R$ %s%n",
-                balance.setScale(2, RoundingMode.HALF_EVEN).toPlainString());
-    }
-
     /**
      * Aplica tarifa de manutenção mensal.
+     * Utiliza o tipo de transação FEE para registrar corretamente no extrato.
      *
      * @throws InsufficientFundsException se saldo insuficiente
      */
@@ -62,9 +57,13 @@ public class CheckingAccount extends Account {
                             maintenanceFee.setScale(2, RoundingMode.HALF_EVEN).toPlainString()));
         }
         balance = balance.subtract(maintenanceFee);
-        addTransaction("Tarifa de manutenção", maintenanceFee.negate());
+
+        // Registra a transação com tipo FEE – o sinal negativo será aplicado
+        // automaticamente no extrato
+        recordTransaction(TransactionType.FEE, "Tarifa de manutenção", maintenanceFee);
     }
 
+    // Getters e setters (inalterados)
     public BigDecimal getMaintenanceFee() {
         return maintenanceFee;
     }

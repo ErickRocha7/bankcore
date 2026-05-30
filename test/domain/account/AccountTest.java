@@ -1,5 +1,6 @@
 package domain.account;
 
+import domain.enums.TransactionType;
 import exceptions.InsufficientFundsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,8 @@ class AccountTest {
 
     @Test
     void deveRegistrarTransacaoManual() {
-        account.recordTransaction("Taxa extra", new BigDecimal("-50.00"));
+        // Transação manual com tipo FEE (tarifa) – sinal negativo no extrato
+        account.recordTransaction(TransactionType.FEE, "Taxa extra", new BigDecimal("50.00"));
         assertEquals(2, account.getTransactions().size());
     }
 
@@ -75,5 +77,12 @@ class AccountTest {
     void equalsBaseadoNoNumeroDaConta() {
         Account outra = new CheckingAccount("Maria", new BigDecimal("100.00"), BigDecimal.ZERO);
         assertNotEquals(account, outra);
+    }
+
+    @Test
+    void naoDevePermitirOperacaoEmContaFechada() {
+        account.setStatus(domain.enums.AccountStatus.CLOSED);
+        assertThrows(IllegalStateException.class, () -> account.deposit(new BigDecimal("10.00")));
+        assertThrows(IllegalStateException.class, () -> account.withdraw(new BigDecimal("10.00")));
     }
 }

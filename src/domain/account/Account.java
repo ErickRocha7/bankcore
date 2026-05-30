@@ -2,47 +2,28 @@ package domain.account;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
 import collections.GenericLinkedList;
+import domain.enums.AccountStatus;
+import domain.enums.TransactionType;
+import domain.transaction.Transaction;
 import exceptions.InsufficientFundsException;
 import util.CurrencyFormatter;
 
-/**
- * Classe abstrata que representa uma conta bancária genérica.
- *
- * Fornece a estrutura base para contas do sistema bancário.
- *
- * Cobertura dos capítulos:
- * 3, 6, 8 - Classes, objetos, encapsulamento, construtores, static e final
- * 9 - Herança
- * 10 - Polimorfismo
- * 11 - Exceções personalizadas
- * 14 - Strings e formatação
- * 15 - Serialização
- * 20, 21 - Genéricos e estruturas personalizadas
- */
 public abstract class Account implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
     private static int accountCounter = 10000;
-
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final String accountNumber;
     private String holderName;
     protected BigDecimal balance;
-    protected GenericLinkedList<String> transactions;
+    protected GenericLinkedList<Transaction> transactions;
+    private AccountStatus status;
 
-    /**
-     * Construtor principal.
-     *
-     * @param holderName     titular da conta
-     * @param initialBalance saldo inicial (BigDecimal)
-     */
     public Account(String holderName, BigDecimal initialBalance) {
         validateHolderName(holderName);
         validateNonNegativeValue(initialBalance, "Saldo inicial");
@@ -51,28 +32,20 @@ public abstract class Account implements Serializable {
         this.holderName = holderName.trim();
         this.balance = initialBalance;
         this.transactions = new GenericLinkedList<>();
+        this.status = AccountStatus.ACTIVE;
 
-        addTransaction("Abertura de conta", initialBalance);
+        addTransaction(TransactionType.ACCOUNT_OPENING, "Abertura de conta", initialBalance);
     }
 
-    /**
-     * Deposita um valor na conta.
-     *
-     * @param amount valor do depósito (BigDecimal)
-     */
     public void deposit(BigDecimal amount) {
+        ensureActive();
         validatePositiveValue(amount, "Depósito");
         balance = balance.add(amount);
-        addTransaction("Depósito", amount);
+        addTransaction(TransactionType.DEPOSIT, "Depósito", amount);
     }
 
-    /**
-     * Realiza saque da conta.
-     *
-     * @param amount valor do saque (BigDecimal)
-     * @throws InsufficientFundsException se não houver saldo suficiente
-     */
     public void withdraw(BigDecimal amount) throws InsufficientFundsException {
+        ensureActive();
         validatePositiveValue(amount, "Saque");
 
         if (amount.compareTo(balance) > 0) {
@@ -84,62 +57,41 @@ public abstract class Account implements Serializable {
         }
 
         balance = balance.subtract(amount);
-        addTransaction("Saque", amount.negate());
+        addTransaction(TransactionType.WITHDRAW, "Saque", amount);
     }
 
-    /**
-     * Método abstrato de projeção/aplicação de juros.
-     *
-     * @param years quantidade de anos
-     */
-    public abstract void calculateInterest(int years);
-
-    /**
-     * Registra uma transação manualmente.
-     *
-     * @param description descrição
-     * @param amount      valor (BigDecimal)
-     */
-    public void recordTransaction(String description, BigDecimal amount) {
+    public void recordTransaction(TransactionType type, String description, BigDecimal amount) {
+        ensureActive();
         if (description == null || description.isBlank()) {
             throw new IllegalArgumentException("Descrição da transação não pode ser vazia.");
         }
-        addTransaction(description, amount);
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Valor da transação deve ser positivo.");
+        }
+        addTransaction(type, description, amount);
     }
 
-    /**
-     * Adiciona uma entrada ao histórico.
-     *
-     * @param description descrição
-     * @param amount      valor (BigDecimal)
-     */
-    protected void addTransaction(String description, BigDecimal amount) {
-        String timestamp = LocalDateTime.now().format(DATE_FORMATTER);
-        String entry = String.format(
-                "[%s] %-30s %s",
-                timestamp,
-                description,
-                CurrencyFormatter.format(amount));
-        transactions.add(entry);
+    private void addTransaction(TransactionType type, String description, BigDecimal amount) {
+        Transaction t = new Transaction(type, amount, description, accountNumber);
+        transactions.add(t);
     }
 
-    /**
-     * Retorna extrato textual completo.
-     *
-     * @return extrato formatado
-     */
     public String getStatement() {
         StringBuilder sb = new StringBuilder();
         sb.append("=============================================\n");
         sb.append(String.format("Conta: %s\n", accountNumber));
         sb.append(String.format("Titular: %s\n", holderName));
+        sb.append(String.format("Status: %s\n", status.getDescription()));
         sb.append("=============================================\n");
 
         if (transactions.isEmpty()) {
             sb.append("Nenhuma movimentação registrada.\n");
         } else {
-            for (String transaction : transactions) {
-                sb.append(transaction).append("\n");
+            for (Transaction t : transactions) {
+                sb.append(String.format("[%s] %-30s %s\n",
+                        t.getTimestamp().format(DATE_FORMATTER),
+                        t.getDescription(),
+                        CurrencyFormatter.format(t.getSignedAmount())));
             }
         }
 
@@ -150,35 +102,41 @@ public abstract class Account implements Serializable {
         return sb.toString();
     }
 
-    private static String generateAccountNumber() {
-        return String.format("%05d", ++accountCounter);
+    public AccountStatus getStatus() {
+        return status;
     }
 
+    public void setStatus(AccountStatus status) {
+        this.status = status;
+    }
+
+    private void ensureActive() {
+        if (status != AccountStatus.ACTIVE) {
+            throw new IllegalStateException(
+                    "Conta " + accountNumber + " não está ativa. Status: " + status.getDescription());
+        }
+    }
+
+    // ---------- Validações (inalteradas) ----------
     private void validateHolderName(String holderName) {
         if (holderName == null || holderName.isBlank()) {
             throw new IllegalArgumentException("Nome do titular não pode ser vazio.");
         }
     }
 
-    /**
-     * Valida valor positivo (BigDecimal).
-     */
     protected void validatePositiveValue(BigDecimal value, String fieldName) {
         if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(fieldName + " deve ser maior que zero.");
         }
     }
 
-    /**
-     * Valida valor não negativo (BigDecimal).
-     */
     protected void validateNonNegativeValue(BigDecimal value, String fieldName) {
         if (value == null || value.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException(fieldName + " não pode ser negativo.");
         }
     }
 
-    // Getters
+    // ---------- Getters e Setters (inalterados) ----------
     public String getAccountNumber() {
         return accountNumber;
     }
@@ -191,22 +149,24 @@ public abstract class Account implements Serializable {
         return balance;
     }
 
-    public GenericLinkedList<String> getTransactions() {
+    public GenericLinkedList<Transaction> getTransactions() {
         return transactions;
     }
 
-    // Setters
     public void setHolderName(String holderName) {
         validateHolderName(holderName);
         this.holderName = holderName.trim();
     }
 
+    // ---------- Object (inalterado, exceto inclusão do status no toString)
+    // ----------
     @Override
     public String toString() {
-        return String.format("%s | %s | Saldo: %s",
+        return String.format("%s | %s | Saldo: %s | Status: %s",
                 accountNumber,
                 holderName,
-                CurrencyFormatter.format(balance));
+                CurrencyFormatter.format(balance),
+                status.getDescription());
     }
 
     @Override
@@ -221,5 +181,9 @@ public abstract class Account implements Serializable {
         if (!(obj instanceof Account other))
             return false;
         return Objects.equals(accountNumber, other.accountNumber);
+    }
+
+    private static String generateAccountNumber() {
+        return String.format("%05d", ++accountCounter);
     }
 }

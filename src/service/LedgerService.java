@@ -1,6 +1,7 @@
 package service;
 
 import domain.account.Account;
+import domain.enums.TransactionType;
 import exceptions.AccountNotFoundException;
 import infrastructure.logging.AuditLogger;
 import repository.AccountRepository;
@@ -16,13 +17,10 @@ public class LedgerService {
         this.logger = logger;
     }
 
-    /**
-     * Registra uma transação genérica na conta.
-     */
-    public void record(String accountNumber, String description, BigDecimal amount)
+    public void record(String accountNumber, TransactionType type, String description, BigDecimal amount)
             throws AccountNotFoundException {
         Account account = accountRepo.findById(accountNumber);
-        account.recordTransaction(description, amount);
+        account.recordTransaction(type, description, amount);
         logger.audit("Transação na conta " + accountNumber + ": " + description + " R$ " + amount);
     }
 

@@ -11,9 +11,6 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Serviço de juros e rendimentos.
- */
 public class InterestService {
 
     private static final MathContext MC = MathContext.DECIMAL128;
@@ -30,23 +27,6 @@ public class InterestService {
         this.logger = logger;
     }
 
-    public void projectInterest(int years) {
-        validateYears(years);
-        List<Account> interestAccounts = getInterestBearingAccounts();
-        if (interestAccounts.isEmpty()) {
-            logger.info("Nenhuma conta com rendimento para projeção.");
-            return;
-        }
-        for (Account acc : interestAccounts) {
-            try {
-                acc.calculateInterest(years);
-                logger.info("Projeção de juros exibida para conta " + acc.getAccountNumber());
-            } catch (Exception e) {
-                logger.error("Erro ao projetar juros da conta " + acc.getAccountNumber() + ": " + e.getMessage());
-            }
-        }
-    }
-
     public List<Account> getInterestBearingAccounts() {
         List<Account> result = new ArrayList<>();
         for (Account acc : accountRepo.findAll()) {
@@ -56,13 +36,6 @@ public class InterestService {
         return result;
     }
 
-    /**
-     * Calcula o valor projetado de uma conta que rende juros.
-     *
-     * @param account conta que implementa InterestBearing
-     * @param years   número de anos
-     * @return valor projetado com precisão BigDecimal
-     */
     public BigDecimal calculateProjectedValue(Account account, int years) {
         if (account == null)
             throw new IllegalArgumentException("Conta não pode ser nula.");
@@ -74,7 +47,6 @@ public class InterestService {
         BigDecimal ratePercent = ib.getInterestRate();
         BigDecimal rateDecimal = ratePercent.divide(BigDecimal.valueOf(100), MC);
 
-        // Calcula (1 + rateDecimal)^years usando loop (evita perda de precisão)
         BigDecimal factor = BigDecimal.ONE;
         for (int i = 0; i < years; i++) {
             factor = factor.multiply(BigDecimal.ONE.add(rateDecimal), MC);
