@@ -9,6 +9,7 @@ import service.*;
 import util.CurrencyFormatter;
 
 import java.math.BigDecimal;
+import java.util.InputMismatchException;
 import java.util.List;
 import java.util.Scanner;
 
@@ -78,19 +79,20 @@ public class BankApplicationOO {
                         default -> System.out.println("Opção inválida.");
                     }
                 }
-            } catch (AccountNotFoundException | InsufficientFundsException | TransferFailedException
-                    | CustomerNotFoundException | IllegalArgumentException | IllegalStateException e) {
-                // Exceções de negócio/validação esperadas – exibe mensagem amigável
+            } catch (AccountNotFoundException | InsufficientFundsException | UnauthorizedException
+                    | TransferFailedException | CustomerNotFoundException e) {
+                // Exceções de negócio esperadas – mensagem amigável
                 System.out.println("Erro: " + e.getMessage());
-                logger.error("Erro durante operação: " + e.getMessage());
+                logger.error("Erro de negócio: " + e.getMessage());
+            } catch (IllegalArgumentException | IllegalStateException e) {
+                // Erros de validação ou estado inválido – comunicar o problema
+                System.out.println("Operação inválida: " + e.getMessage());
+                logger.warning("Validação falhou: " + e.getMessage());
             } catch (RuntimeException e) {
-                // Erros inesperados (ex.: NullPointerException, InputMismatchException)
-                System.out.println("Erro interno inesperado. Por favor, contate o suporte.");
-                logger.error("Erro inesperado (RuntimeException): ", e);
-            } catch (Exception e) {
-                // Outras exceções verificadas não previstas (segurança)
-                System.out.println("Erro inesperado: " + e.getMessage());
-                logger.error("Erro inesperado (Exception): ", e);
+                // Erro inesperado – registrar detalhes para depuração
+                System.out.println("Erro inesperado. Por favor, tente novamente ou contate o suporte.");
+                logger.error("Erro inesperado: " + e.getMessage());
+                e.printStackTrace(); // pode ser redirecionado para log
             }
         }
         scanner.close();
@@ -119,17 +121,13 @@ public class BankApplicationOO {
     }
 
     // ---------- Operações ----------
-    private void login() {
+    private void login() throws UnauthorizedException, CustomerNotFoundException {
         System.out.print("CPF (formato 000.000.000-00): ");
         String cpf = scanner.nextLine();
         System.out.print("Senha: ");
         String password = scanner.nextLine();
-        try {
-            currentCustomer = authService.login(cpf, password);
-            System.out.println("Login bem-sucedido! Bem-vindo, " + currentCustomer.getName());
-        } catch (UnauthorizedException | CustomerNotFoundException e) {
-            System.out.println("Falha no login: " + e.getMessage());
-        }
+        currentCustomer = authService.login(cpf, password);
+        System.out.println("Login bem-sucedido! Bem-vindo, " + currentCustomer.getName());
     }
 
     private void registerCustomer() {
@@ -141,14 +139,10 @@ public class BankApplicationOO {
         System.out.print("Senha (mínimo 4 caracteres): ");
         String password = scanner.nextLine();
 
-        try {
-            Customer newCustomer = new Customer(cpf, name, password);
-            customerRepo.add(newCustomer);
-            System.out.println("Cliente cadastrado com sucesso!");
-            logger.info("Novo cliente cadastrado: " + cpf);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Erro ao cadastrar: " + e.getMessage());
-        }
+        Customer newCustomer = new Customer(cpf, name, password);
+        customerRepo.add(newCustomer);
+        System.out.println("Cliente cadastrado com sucesso!");
+        logger.info("Novo cliente cadastrado: " + cpf);
     }
 
     private void displayBalance() throws AccountNotFoundException {
@@ -253,7 +247,7 @@ public class BankApplicationOO {
         System.out.println("Logout realizado.");
     }
 
-    // ---------- Utilidades ----------
+    // ---------- Utilitários ----------
     private String selectAccount(String operation) {
         List<Account> accounts = currentCustomer.getAccounts();
         if (accounts.isEmpty()) {
@@ -277,10 +271,17 @@ public class BankApplicationOO {
     }
 
     private int readInt(String prompt) {
-        System.out.print(prompt);
-        int value = scanner.nextInt();
-        scanner.nextLine(); // consumir newline
-        return value;
+        while (true) {
+            try {
+                System.out.print(prompt);
+                int value = scanner.nextInt();
+                scanner.nextLine(); // consumir newline
+                return value;
+            } catch (InputMismatchException e) {
+                System.out.println("Entrada inválida. Digite um número inteiro.");
+                scanner.nextLine(); // descartar a entrada incorreta
+            }
+        }
     }
 
     /**
