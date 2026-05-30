@@ -80,8 +80,8 @@ public class AccountService {
         Account account;
 
         if (type.equalsIgnoreCase("poupanca")) {
-            double rate = extraRateOrFee.doubleValue();
-            account = new SavingsAccount(customer.getName(), initialBalance, rate);
+            // extraRateOrFee é a taxa de juros como BigDecimal, passado diretamente
+            account = new SavingsAccount(customer.getName(), initialBalance, extraRateOrFee);
         } else {
             account = new CheckingAccount(customer.getName(), initialBalance, extraRateOrFee);
         }

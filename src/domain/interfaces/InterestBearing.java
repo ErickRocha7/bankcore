@@ -1,5 +1,7 @@
 package domain.interfaces;
 
+import java.math.BigDecimal;
+
 /**
  * Interface para objetos que podem render juros.
  *
@@ -8,10 +10,11 @@ package domain.interfaces;
 public interface InterestBearing {
     /**
      * Retorna a taxa de juros anual (em percentual).
+     * Exemplo: 5.0 para 5% a.a.
      * 
-     * @return taxa de juros (ex.: 5.0 para 5% a.a.)
+     * @return taxa de juros como BigDecimal
      */
-    double getInterestRate();
+    BigDecimal getInterestRate();
 
     /**
      * Calcula e exibe o rendimento ao longo de um número de anos.

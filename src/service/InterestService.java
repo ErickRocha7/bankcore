@@ -6,6 +6,7 @@ import infrastructure.logging.AuditLogger;
 import repository.AccountRepository;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,8 @@ import java.util.List;
  * Serviço de juros e rendimentos.
  */
 public class InterestService {
+
+    private static final MathContext MC = MathContext.DECIMAL128;
 
     private final AccountRepository accountRepo;
     private final AuditLogger logger;
@@ -53,6 +56,13 @@ public class InterestService {
         return result;
     }
 
+    /**
+     * Calcula o valor projetado de uma conta que rende juros.
+     *
+     * @param account conta que implementa InterestBearing
+     * @param years   número de anos
+     * @return valor projetado com precisão BigDecimal
+     */
     public BigDecimal calculateProjectedValue(Account account, int years) {
         if (account == null)
             throw new IllegalArgumentException("Conta não pode ser nula.");
@@ -61,10 +71,17 @@ public class InterestService {
         validateYears(years);
 
         InterestBearing ib = (InterestBearing) account;
-        double rate = ib.getInterestRate() / 100.0;
-        double principal = account.getBalance().doubleValue();
-        double projected = principal * Math.pow(1 + rate, years);
-        return BigDecimal.valueOf(projected).setScale(2, RoundingMode.HALF_EVEN);
+        BigDecimal ratePercent = ib.getInterestRate();
+        BigDecimal rateDecimal = ratePercent.divide(BigDecimal.valueOf(100), MC);
+
+        // Calcula (1 + rateDecimal)^years usando loop (evita perda de precisão)
+        BigDecimal factor = BigDecimal.ONE;
+        for (int i = 0; i < years; i++) {
+            factor = factor.multiply(BigDecimal.ONE.add(rateDecimal), MC);
+        }
+
+        BigDecimal principal = account.getBalance();
+        return principal.multiply(factor, MC).setScale(2, RoundingMode.HALF_EVEN);
     }
 
     public String generateProjectionReport(int years) {
