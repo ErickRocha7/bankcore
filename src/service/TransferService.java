@@ -1,6 +1,5 @@
 package service;
 
-import collections.GenericStack;
 import domain.account.Account;
 import exceptions.AccountNotFoundException;
 import exceptions.InsufficientFundsException;
@@ -15,21 +14,20 @@ import java.math.BigDecimal;
  *
  * Funcionalidades:
  * - Transferência bancária
- * - Controle de rollback manual
+ * - Controle de rollback atômico (desfaz débito se crédito falhar)
  * - Registro transacional
  * - Auditoria
  *
  * Capítulos abordados:
  * 8 - Composição
- * 11 - Exceções e rollback manual (agora com TransferFailedException)
+ * 11 - Exceções e rollback
  * 16 - Estruturas de dados
- * 21 - Estruturas genéricas customizadas
+ * 21 - Estruturas genéricas customizadas (não mais utilizadas neste serviço)
  */
 public class TransferService {
 
     private final AccountRepository accountRepo;
     private final AuditLogger logger;
-    private final GenericStack<String> undoStack;
 
     /**
      * Construtor principal.
@@ -46,17 +44,16 @@ public class TransferService {
         }
         this.accountRepo = accountRepo;
         this.logger = logger;
-        this.undoStack = new GenericStack<>();
     }
 
     /**
-     * Realiza transferência entre contas.
+     * Realiza transferência entre contas com garantia de atomicidade.
      *
      * Fluxo:
-     * 1. Validação
-     * 2. Débito
-     * 3. Crédito
-     * 4. Rollback em caso de falha
+     * 1. Validação dos parâmetros
+     * 2. Débito da conta origem
+     * 3. Crédito na conta destino
+     * 4. Em caso de falha no crédito, executa rollback imediato do débito
      *
      * @param fromAccount conta origem
      * @param toAccount   conta destino
@@ -77,11 +74,12 @@ public class TransferService {
         logger.info("Iniciando transferência | Origem: " + fromAccount +
                 " | Destino: " + toAccount + " | Valor: R$ " + amount);
 
-        // ETAPA 1 - DÉBITO (já registra transação e pode lançar
-        // InsufficientFundsException)
+        // ETAPA 1 - DÉBITO
         source.withdraw(amount);
-        undoStack.push(buildRollbackEntry(fromAccount, amount));
         logger.info("Débito realizado na conta " + fromAccount);
+
+        // Prepara dados para possível rollback (apenas armazena localmente)
+        String rollbackData = buildRollbackEntry(fromAccount, amount);
 
         // ETAPA 2 - CRÉDITO
         try {
@@ -92,30 +90,25 @@ public class TransferService {
         } catch (Exception transferError) {
             logger.error("Falha no crédito da transferência: " + transferError.getMessage());
 
-            // Tenta reverter o débito
-            rollback(source);
+            // Executa rollback do débito com os dados armazenados
+            rollback(source, rollbackData);
 
-            // Lança exceção verificada com a causa original, para o chamador decidir o
-            // tratamento
             throw new TransferFailedException(
                     "Falha ao creditar o valor na conta destino. Transferência revertida.",
                     transferError);
         }
+        // Se chegou aqui, a transferência foi bem-sucedida e nada mais é necessário.
+        // Nenhum estado residual permanece no serviço.
     }
 
     /**
-     * Executa rollback do débito.
+     * Executa o rollback do débito, depositando o valor de volta na conta origem.
      *
-     * @param source conta origem (para estornar o débito)
+     * @param source       conta que sofreu o débito
+     * @param rollbackData string codificada com os dados do débito
      */
-    private void rollback(Account source) {
+    private void rollback(Account source, String rollbackData) {
         try {
-            if (undoStack.isEmpty()) {
-                logger.error("Rollback impossível: pilha vazia.");
-                return;
-            }
-
-            String rollbackData = undoStack.pop();
             String[] parts = rollbackData.split(":");
             if (parts.length != 3) {
                 logger.error("Formato inválido de rollback.");
@@ -138,6 +131,8 @@ public class TransferService {
 
         } catch (Exception rollbackError) {
             logger.error("Falha crítica no rollback: " + rollbackError.getMessage());
+            // Neste ponto, o sistema está inconsistente; a escalação humana seria
+            // necessária.
         }
     }
 
@@ -169,22 +164,5 @@ public class TransferService {
         if (accountNumber == null || accountNumber.isBlank()) {
             throw new IllegalArgumentException("Número da conta não pode ser vazio.");
         }
-    }
-
-    /**
-     * Retorna quantidade de operações pendentes na pilha de rollback.
-     */
-    public int rollbackStackSize() {
-        return undoStack.size();
-    }
-
-    /**
-     * Limpa histórico de rollback.
-     */
-    public void clearRollbackHistory() {
-        while (!undoStack.isEmpty()) {
-            undoStack.pop();
-        }
-        logger.info("Histórico de rollback limpo.");
     }
 }
