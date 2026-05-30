@@ -17,6 +17,8 @@ import java.util.Scanner;
  * Aplicação bancária orientada a objetos (fase 2).
  * Utiliza os serviços e repositórios do domínio.
  * Trata entrada e saída monetária no padrão brasileiro (vírgula).
+ * Exceções são tratadas de forma granular: negócio, validação e erros
+ * inesperados.
  */
 public class BankApplicationOO {
 
@@ -154,14 +156,14 @@ public class BankApplicationOO {
 
     private void deposit() throws AccountNotFoundException {
         String accNum = selectAccount("depósito");
-        BigDecimal amount = readBigDecimal("Valor do depósito: R$ ");
+        BigDecimal amount = readBigDecimal("Valor do depósito (ex: 1.500,00): R$ ");
         accountService.deposit(accNum, amount);
         System.out.println("Depósito realizado com sucesso.");
     }
 
     private void withdraw() throws AccountNotFoundException, InsufficientFundsException {
         String accNum = selectAccount("saque");
-        BigDecimal amount = readBigDecimal("Valor do saque: R$ ");
+        BigDecimal amount = readBigDecimal("Valor do saque (ex: 1.500,00): R$ ");
         accountService.withdraw(accNum, amount);
         System.out.println("Saque realizado com sucesso.");
     }
@@ -170,7 +172,7 @@ public class BankApplicationOO {
         String fromAcc = selectAccount("transferência (origem)");
         System.out.print("Conta destino: ");
         String toAcc = scanner.nextLine();
-        BigDecimal amount = readBigDecimal("Valor da transferência: R$ ");
+        BigDecimal amount = readBigDecimal("Valor da transferência (ex: 1.500,00): R$ ");
         transferService.transfer(fromAcc, toAcc, amount);
         System.out.println("Transferência concluída.");
     }
@@ -207,7 +209,7 @@ public class BankApplicationOO {
     private void createAccount() throws CustomerNotFoundException {
         System.out.print("Tipo de conta (poupanca/corrente): ");
         String type = scanner.nextLine();
-        BigDecimal initialBalance = readBigDecimal("Saldo inicial: R$ ");
+        BigDecimal initialBalance = readBigDecimal("Saldo inicial (ex: 1.500,00): R$ ");
         BigDecimal extra = BigDecimal.ZERO;
         if (type.equalsIgnoreCase("poupanca")) {
             System.out.print("Taxa de juros anual (%): ");
@@ -215,7 +217,7 @@ public class BankApplicationOO {
             scanner.nextLine(); // consumir newline
             extra = BigDecimal.valueOf(rate);
         } else if (type.equalsIgnoreCase("corrente")) {
-            extra = readBigDecimal("Tarifa mensal: R$ ");
+            extra = readBigDecimal("Tarifa mensal (ex: 12,90): R$ ");
         } else {
             System.out.println("Tipo inválido.");
             return;
@@ -285,16 +287,17 @@ public class BankApplicationOO {
     }
 
     /**
-     * Lê um valor monetário do teclado, aceitando vírgula ou ponto.
+     * Lê um valor monetário do teclado, exigindo o padrão brasileiro.
+     * Repete até que um valor válido seja informado.
      */
     private BigDecimal readBigDecimal(String prompt) {
         while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine();
             try {
-                System.out.print(prompt);
-                String input = scanner.nextLine();
                 return CurrencyFormatter.parse(input);
-            } catch (NumberFormatException e) {
-                System.out.println("Valor inválido. Use o formato 1.500,00 ou 1500.50");
+            } catch (IllegalArgumentException e) {
+                System.out.println(e.getMessage()); // exibe a orientação do CurrencyFormatter
             }
         }
     }

@@ -8,18 +8,17 @@ import java.util.Locale;
 
 /**
  * Utilitário para formatação e parsing de valores monetários no padrão
- * brasileiro.
+ * brasileiro. Agora exige o formato rigoroso com vírgula como separador
+ * decimal e ponto como separador de milhar (opcional).
  *
- * Capítulos abordados:
- * 14 - Strings, formatação e expressões regulares
- * 16 - Coleções e utilitários
+ * Exemplos válidos: "1500,00", "1.500,00", "1500,50"
+ * Formatos inválidos: "1500.00", "1,500.00", "1.500"
  */
 public final class CurrencyFormatter {
 
     private static final DecimalFormat FORMATTER;
 
     static {
-        // Usando fábrica moderna (não depreciada) – Java 19+
         Locale ptBR = Locale.of("pt", "BR");
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(ptBR);
         symbols.setDecimalSeparator(',');
@@ -35,9 +34,6 @@ public final class CurrencyFormatter {
     /**
      * Formata um BigDecimal para exibição no padrão brasileiro.
      * Exemplo: 1500.50 -> "R$ 1.500,50"
-     *
-     * @param value valor a formatar
-     * @return string formatada
      */
     public static String format(BigDecimal value) {
         if (value == null)
@@ -46,26 +42,37 @@ public final class CurrencyFormatter {
     }
 
     /**
-     * Converte uma string de entrada do usuário para BigDecimal.
-     * Aceita tanto vírgula quanto ponto como separador decimal,
-     * e também pontos de agrupamento de milhar.
+     * Converte uma string de entrada para BigDecimal usando o formato brasileiro
+     * estrito.
+     * Aceita apenas strings que atendam ao padrão: dígitos com vírgula como
+     * separador
+     * decimal e, opcionalmente, pontos separando milhares (ex: "1.500,00" ou
+     * "1500,00").
      *
-     * Exemplos válidos: "1500,50", "1.500,50", "1500.50"
+     * Qualquer desvio (uso de ponto como decimal, ausência de centavos, etc.) gera
+     * uma exceção descritiva.
      *
-     * @param input string de entrada
+     * @param input string de entrada fornecida pelo usuário
      * @return BigDecimal correspondente
-     * @throws NumberFormatException se a string não for numérica
+     * @throws IllegalArgumentException se o formato for inválido
      */
     public static BigDecimal parse(String input) {
         if (input == null || input.isBlank()) {
-            throw new NumberFormatException("Valor vazio.");
+            throw new IllegalArgumentException("Valor vazio. Digite um número no formato 1.500,00.");
         }
-        // Remove pontos de milhar e substitui vírgula por ponto
-        String normalized = input.trim().replace(".", "").replace(",", ".");
-        // Se houver mais de um ponto decimal, é inválido
-        if (normalized.chars().filter(ch -> ch == '.').count() > 1) {
-            throw new NumberFormatException("Formato inválido: " + input);
+
+        String trimmed = input.trim();
+
+        // Valida o formato: aceita dígitos, pontos de milhar e exatamente uma vírgula
+        // decimal
+        if (!trimmed.matches("^\\d{1,3}(\\.\\d{3})*,\\d{2}$")) {
+            throw new IllegalArgumentException(
+                    "Formato inválido: \"" + trimmed
+                            + "\". Use o padrão brasileiro: 1.500,00 (vírgula para centavos, ponto para milhar opcional).");
         }
+
+        // Remove pontos de milhar e substitui vírgula decimal por ponto
+        String normalized = trimmed.replace(".", "").replace(",", ".");
         return new BigDecimal(normalized);
     }
 }
