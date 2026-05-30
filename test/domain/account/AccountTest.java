@@ -8,10 +8,6 @@ import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Testes unitários para a classe abstrata Account através de uma implementação
- * concreta.
- */
 class AccountTest {
 
     private Account account;
@@ -33,14 +29,14 @@ class AccountTest {
     void deveDepositarValorPositivo() {
         account.deposit(new BigDecimal("250.00"));
         assertEquals(new BigDecimal("1250.00"), account.getBalance());
-        assertEquals(2, countTransactions(account)); // abertura + depósito
+        assertEquals(2, account.getTransactions().size()); // abertura + depósito
     }
 
     @Test
     void deveSacarComSaldoSuficiente() throws InsufficientFundsException {
         account.withdraw(new BigDecimal("300.00"));
         assertEquals(new BigDecimal("700.00"), account.getBalance());
-        assertEquals(2, countTransactions(account));
+        assertEquals(2, account.getTransactions().size());
     }
 
     @Test
@@ -64,7 +60,7 @@ class AccountTest {
     @Test
     void deveRegistrarTransacaoManual() {
         account.recordTransaction("Taxa extra", new BigDecimal("-50.00"));
-        assertEquals(2, countTransactions(account));
+        assertEquals(2, account.getTransactions().size());
     }
 
     @Test
@@ -79,13 +75,5 @@ class AccountTest {
     void equalsBaseadoNoNumeroDaConta() {
         Account outra = new CheckingAccount("Maria", new BigDecimal("100.00"), BigDecimal.ZERO);
         assertNotEquals(account, outra);
-    }
-
-    private int countTransactions(Account acc) {
-        int count = 0;
-        for (String t : acc.getTransactions()) {
-            count++;
-        }
-        return count;
     }
 }
