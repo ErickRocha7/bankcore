@@ -78,9 +78,19 @@ public class BankApplicationOO {
                         default -> System.out.println("Opção inválida.");
                     }
                 }
-            } catch (Exception e) {
+            } catch (AccountNotFoundException | InsufficientFundsException | TransferFailedException
+                    | CustomerNotFoundException | IllegalArgumentException | IllegalStateException e) {
+                // Exceções de negócio/validação esperadas – exibe mensagem amigável
                 System.out.println("Erro: " + e.getMessage());
                 logger.error("Erro durante operação: " + e.getMessage());
+            } catch (RuntimeException e) {
+                // Erros inesperados (ex.: NullPointerException, InputMismatchException)
+                System.out.println("Erro interno inesperado. Por favor, contate o suporte.");
+                logger.error("Erro inesperado (RuntimeException): ", e);
+            } catch (Exception e) {
+                // Outras exceções verificadas não previstas (segurança)
+                System.out.println("Erro inesperado: " + e.getMessage());
+                logger.error("Erro inesperado (Exception): ", e);
             }
         }
         scanner.close();

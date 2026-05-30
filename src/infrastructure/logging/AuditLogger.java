@@ -3,6 +3,7 @@ package infrastructure.logging;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -66,6 +67,17 @@ public class AuditLogger {
     }
 
     /**
+     * Registra uma mensagem de erro com a stack trace da exceção.
+     * 
+     * @param message descrição do erro
+     * @param t       exceção associada
+     */
+    public void error(String message, Throwable t) {
+        String fullMessage = message + System.lineSeparator() + stackTraceToString(t);
+        log("ERROR", fullMessage);
+    }
+
+    /**
      * Registra uma trilha de auditoria (ex: transação realizada).
      * 
      * @param auditTrail String contendo a trilha de auditoria
@@ -87,5 +99,15 @@ public class AuditLogger {
         }
         // Opcional: também exibir no console
         System.out.println(logEntry);
+    }
+
+    /**
+     * Converte a stack trace de uma exceção para String.
+     */
+    private String stackTraceToString(Throwable t) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        t.printStackTrace(pw);
+        return sw.toString();
     }
 }
