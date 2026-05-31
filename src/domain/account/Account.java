@@ -12,7 +12,7 @@ import domain.transaction.Transaction;
 import exceptions.InsufficientFundsException;
 import util.CurrencyFormatter;
 
-public abstract class Account implements Serializable {
+public abstract class Account implements Serializable, Comparable<Account> {
 
     private static final long serialVersionUID = 1L;
     private static int accountCounter = 10000;
@@ -37,6 +37,7 @@ public abstract class Account implements Serializable {
         addTransaction(TransactionType.ACCOUNT_OPENING, "Abertura de conta", initialBalance);
     }
 
+    // ---------- Métodos principais ----------
     public void deposit(BigDecimal amount) {
         ensureActive();
         validatePositiveValue(amount, "Depósito");
@@ -96,12 +97,12 @@ public abstract class Account implements Serializable {
         }
 
         sb.append("=============================================\n");
-        sb.append(String.format("Saldo atual: %s\n",
-                CurrencyFormatter.format(balance)));
+        sb.append(String.format("Saldo atual: %s\n", CurrencyFormatter.format(balance)));
 
         return sb.toString();
     }
 
+    // ---------- Status ----------
     public AccountStatus getStatus() {
         return status;
     }
@@ -117,7 +118,7 @@ public abstract class Account implements Serializable {
         }
     }
 
-    // ---------- Validações (inalteradas) ----------
+    // ---------- Validações ----------
     private void validateHolderName(String holderName) {
         if (holderName == null || holderName.isBlank()) {
             throw new IllegalArgumentException("Nome do titular não pode ser vazio.");
@@ -136,7 +137,7 @@ public abstract class Account implements Serializable {
         }
     }
 
-    // ---------- Getters e Setters (inalterados) ----------
+    // ---------- Getters e Setters ----------
     public String getAccountNumber() {
         return accountNumber;
     }
@@ -158,8 +159,13 @@ public abstract class Account implements Serializable {
         this.holderName = holderName.trim();
     }
 
-    // ---------- Object (inalterado, exceto inclusão do status no toString)
-    // ----------
+    // ---------- Comparable ----------
+    @Override
+    public int compareTo(Account other) {
+        return this.accountNumber.compareTo(other.accountNumber);
+    }
+
+    // ---------- Object ----------
     @Override
     public String toString() {
         return String.format("%s | %s | Saldo: %s | Status: %s",
@@ -183,7 +189,15 @@ public abstract class Account implements Serializable {
         return Objects.equals(accountNumber, other.accountNumber);
     }
 
+    // ---------- Gerador de número de conta ----------
     private static String generateAccountNumber() {
         return String.format("%05d", ++accountCounter);
+    }
+
+    // Método estático auxiliar para restaurar o contador após carga
+    public static void restoreCounter(int maxNumber) {
+        if (maxNumber > accountCounter) {
+            accountCounter = maxNumber;
+        }
     }
 }

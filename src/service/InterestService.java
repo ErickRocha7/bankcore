@@ -4,11 +4,11 @@ import domain.account.Account;
 import domain.interfaces.InterestBearing;
 import infrastructure.logging.AuditLogger;
 import repository.AccountRepository;
+import util.GenericUtils;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.List;
 
 public class InterestService {
@@ -28,12 +28,8 @@ public class InterestService {
     }
 
     public List<Account> getInterestBearingAccounts() {
-        List<Account> result = new ArrayList<>();
-        for (Account acc : accountRepo.findAll()) {
-            if (acc instanceof InterestBearing)
-                result.add(acc);
-        }
-        return result;
+        List<Account> all = accountRepo.findAll();
+        return GenericUtils.filter(all, acc -> acc instanceof InterestBearing);
     }
 
     public BigDecimal calculateProjectedValue(Account account, int years) {

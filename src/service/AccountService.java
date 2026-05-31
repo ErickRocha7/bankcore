@@ -5,12 +5,14 @@ import domain.account.CheckingAccount;
 import domain.account.SavingsAccount;
 import domain.customer.Customer;
 import domain.enums.AccountStatus;
+import domain.interfaces.InterestBearing;
 import exceptions.AccountNotFoundException;
 import exceptions.CustomerNotFoundException;
 import exceptions.InsufficientFundsException;
 import infrastructure.logging.AuditLogger;
 import repository.AccountRepository;
 import repository.CustomerRepository;
+import util.GenericUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -39,7 +41,6 @@ public class AccountService {
             BigDecimal initialBalance,
             BigDecimal extraRateOrFee)
             throws CustomerNotFoundException {
-
         validateCpf(cpf);
         validateAccountType(type);
         if (initialBalance.compareTo(BigDecimal.ZERO) < 0)
@@ -85,8 +86,7 @@ public class AccountService {
                 " | Valor: R$ " + amount);
     }
 
-    public Account findAccount(String accountNumber)
-            throws AccountNotFoundException {
+    public Account findAccount(String accountNumber) throws AccountNotFoundException {
         validateAccountNumber(accountNumber);
         return accountRepo.findById(accountNumber);
     }
@@ -100,21 +100,17 @@ public class AccountService {
     }
 
     public boolean accountExists(String accountNumber) {
-        return accountNumber != null && !accountNumber.isBlank()
-                && accountRepo.exists(accountNumber);
+        return accountNumber != null && !accountNumber.isBlank() && accountRepo.exists(accountNumber);
     }
 
-    public void closeAccount(String accountNumber)
-            throws AccountNotFoundException {
+    public void closeAccount(String accountNumber) throws AccountNotFoundException {
         validateAccountNumber(accountNumber);
         Account account = accountRepo.findById(accountNumber);
 
         if (account.getBalance().compareTo(BigDecimal.ZERO) != 0) {
-            throw new IllegalStateException(
-                    "A conta não pode ser encerrada porque possui saldo diferente de zero.");
+            throw new IllegalStateException("A conta não pode ser encerrada porque possui saldo diferente de zero.");
         }
 
-        // Altera o status ao invés de remover do repositório
         account.setStatus(AccountStatus.CLOSED);
         removeAccountFromOwner(account);
         logger.info("Conta encerrada | Conta: " + accountNumber);
@@ -132,7 +128,13 @@ public class AccountService {
         }
     }
 
-    // --- validações internas (inalteradas) ---
+    // Uso do GenericUtils.filter
+    public List<Account> getInterestBearingAccounts() {
+        List<Account> all = accountRepo.findAll();
+        return GenericUtils.filter(all, acc -> acc instanceof InterestBearing);
+    }
+
+    // --- validações ---
     private void validateCpf(String cpf) {
         if (cpf == null || cpf.isBlank())
             throw new IllegalArgumentException("CPF não pode ser nulo ou vazio.");

@@ -7,19 +7,13 @@ import infrastructure.logging.AuditLogger;
 import repository.CustomerRepository;
 import service.*;
 import util.CurrencyFormatter;
+import util.GenericUtils;
 
 import java.math.BigDecimal;
 import java.util.InputMismatchException;
 import java.util.List;
 import java.util.Scanner;
 
-/**
- * Aplicação bancária orientada a objetos (fase 2).
- * Utiliza os serviços e repositórios do domínio.
- * Trata entrada e saída monetária no padrão brasileiro (vírgula).
- * Exceções são tratadas de forma granular: negócio, validação e erros
- * inesperados.
- */
 public class BankApplicationOO {
 
     private final AuthenticationService authService;
@@ -83,18 +77,15 @@ public class BankApplicationOO {
                 }
             } catch (AccountNotFoundException | InsufficientFundsException | UnauthorizedException
                     | TransferFailedException | CustomerNotFoundException e) {
-                // Exceções de negócio esperadas – mensagem amigável
                 System.out.println("Erro: " + e.getMessage());
                 logger.error("Erro de negócio: " + e.getMessage());
             } catch (IllegalArgumentException | IllegalStateException e) {
-                // Erros de validação ou estado inválido – comunicar o problema
                 System.out.println("Operação inválida: " + e.getMessage());
                 logger.warning("Validação falhou: " + e.getMessage());
             } catch (RuntimeException e) {
-                // Erro inesperado – registrar detalhes para depuração
                 System.out.println("Erro inesperado. Por favor, tente novamente ou contate o suporte.");
                 logger.error("Erro inesperado: " + e.getMessage());
-                e.printStackTrace(); // pode ser redirecionado para log
+                e.printStackTrace();
             }
         }
         scanner.close();
@@ -214,7 +205,7 @@ public class BankApplicationOO {
         if (type.equalsIgnoreCase("poupanca")) {
             System.out.print("Taxa de juros anual (%): ");
             double rate = scanner.nextDouble();
-            scanner.nextLine(); // consumir newline
+            scanner.nextLine();
             extra = BigDecimal.valueOf(rate);
         } else if (type.equalsIgnoreCase("corrente")) {
             extra = readBigDecimal("Tarifa mensal (ex: 12,90): R$ ");
@@ -222,8 +213,7 @@ public class BankApplicationOO {
             System.out.println("Tipo inválido.");
             return;
         }
-        Account newAcc = accountService.createAccount(
-                currentCustomer.getCpf(), type, initialBalance, extra);
+        Account newAcc = accountService.createAccount(currentCustomer.getCpf(), type, initialBalance, extra);
         System.out.println("Conta criada com sucesso! Número: " + newAcc.getAccountNumber());
     }
 
@@ -233,14 +223,8 @@ public class BankApplicationOO {
             System.out.println("Nenhuma conta associada.");
         } else {
             System.out.println("--- Minhas Contas ---");
-            for (Account acc : accounts) {
-                String tipo = acc.getClass().getSimpleName().replace("Account", "");
-                System.out.printf("%s %s | %s | Saldo: %s%n",
-                        tipo,
-                        acc.getAccountNumber(),
-                        acc.getHolderName(),
-                        CurrencyFormatter.format(acc.getBalance()));
-            }
+            // Usando GenericUtils.printList
+            GenericUtils.printList(accounts);
         }
     }
 
@@ -277,19 +261,15 @@ public class BankApplicationOO {
             try {
                 System.out.print(prompt);
                 int value = scanner.nextInt();
-                scanner.nextLine(); // consumir newline
+                scanner.nextLine();
                 return value;
             } catch (InputMismatchException e) {
                 System.out.println("Entrada inválida. Digite um número inteiro.");
-                scanner.nextLine(); // descartar a entrada incorreta
+                scanner.nextLine();
             }
         }
     }
 
-    /**
-     * Lê um valor monetário do teclado, exigindo o padrão brasileiro.
-     * Repete até que um valor válido seja informado.
-     */
     private BigDecimal readBigDecimal(String prompt) {
         while (true) {
             System.out.print(prompt);
@@ -297,7 +277,7 @@ public class BankApplicationOO {
             try {
                 return CurrencyFormatter.parse(input);
             } catch (IllegalArgumentException e) {
-                System.out.println(e.getMessage()); // exibe a orientação do CurrencyFormatter
+                System.out.println(e.getMessage());
             }
         }
     }
